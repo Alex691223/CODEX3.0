@@ -12,6 +12,7 @@ import {
   DialogTitle,
   DialogTrigger,
   DialogFooter,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import {
   AlertDialog,
@@ -324,6 +325,9 @@ function ApplicationRow({ app, isAdmin, onUpdate, onDelete }) {
                 <DialogTitle className="font-display text-xl uppercase tracking-wider">
                   Заявка · {app.nickname}
                 </DialogTitle>
+                <DialogDescription className="text-zinc-500 text-sm">
+                  Полная информация из анкеты на вступление.
+                </DialogDescription>
               </DialogHeader>
               <div className="space-y-4 mt-3">
                 <Field label="Discord" value={app.discord} />
@@ -469,6 +473,9 @@ function ModeratorsPanel({ mods, reload }) {
               <DialogTitle className="font-display uppercase tracking-wider">
                 Новый модератор
               </DialogTitle>
+              <DialogDescription className="text-zinc-500 text-sm">
+                Задайте логин и пароль. Модератор получит доступ к рассмотрению заявок.
+              </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 mt-2">
               <div>
