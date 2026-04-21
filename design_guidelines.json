@@ -1,0 +1,147 @@
+{
+  "project_name": "C O D E X Family Web Portal",
+  "domain": "GTA 5 Roleplay / Web Clan",
+  "theme": "dark",
+  "archetype": "5 (Jewel & Luxury) - Modified for Dark Gothic / Mafia Aesthetic",
+  "emotional_tone": [
+    "Intimidating",
+    "Elite",
+    "Cinematic",
+    "Exclusive",
+    "Underground"
+  ],
+  "colors": {
+    "background": "#050505",
+    "surface": "#121212",
+    "surface_glass": "rgba(18, 18, 18, 0.75)",
+    "border": "#27272A",
+    "border_glow": "rgba(138, 3, 3, 0.4)",
+    "text_primary": "#FAFAFA",
+    "text_secondary": "#A1A1AA",
+    "text_muted": "#52525B",
+    "primary": "#8A0303",
+    "primary_hover": "#A10A0A",
+    "accent": "#E5E5E5"
+  },
+  "typography": {
+    "font_families": {
+      "heading": "'Cinzel', 'Playfair Display', serif",
+      "body": "'Manrope', 'Inter', sans-serif",
+      "accent": "'UnifrakturMaguntia', cursive"
+    },
+    "scales": {
+      "h1": "text-5xl md:text-6xl lg:text-7xl tracking-tighter uppercase",
+      "h2": "text-3xl md:text-4xl lg:text-5xl tracking-tight uppercase",
+      "h3": "text-xl md:text-2xl tracking-normal",
+      "body": "text-base leading-relaxed tracking-wide",
+      "overline": "text-xs uppercase tracking-[0.2em]"
+    }
+  },
+  "layout": {
+    "spacing_philosophy": "Generous spacing. p-8 to p-16 inside sections. gap-8 to gap-12 for bento grids.",
+    "container_max": "max-w-7xl mx-auto px-4 md:px-8",
+    "bento_grid": "Grid cols-1 md:grid-cols-12 gap-8 with intense asymmetry. Direct children styled with p-8 border border-zinc-800 bg-zinc-900/50 backdrop-blur-sm relative overflow-hidden"
+  },
+  "surfaces_and_micro_themes": {
+    "header": "Crystal Glassmorphism: bg-black/80 backdrop-blur-xl border-b border-zinc-800/50 sticky top-0 z-50",
+    "cards": "Flat background bg-[#121212] with 1px solid border-zinc-800. No heavy box shadows, focus on crisp, sharp borders. Hover state: border-red-900/50 transition-colors duration-300.",
+    "inputs": "Shadcn UI overrides: bg-black border-zinc-800 focus:ring-1 focus:ring-[#8A0303] focus:border-[#8A0303] rounded-none text-zinc-100 placeholder:text-zinc-600",
+    "buttons": "Sharp corners. Primary CTA: bg-[#8A0303] hover:bg-[#A10A0A] text-white px-8 py-4 uppercase tracking-widest text-sm font-semibold transition-all. Secondary: bg-transparent border border-zinc-700 hover:border-zinc-500 text-zinc-300."
+  },
+  "media": {
+    "images": {
+      "hero_background": {
+        "url": "https://static.prod-images.emergentagent.com/jobs/535564d9-799e-4642-b186-394f0ab11df3/images/5211e414ad13a5db411fc2e80dc25dc44a367516c10e2b3df75cbb20673195cd.png",
+        "description": "Cinematic wide shot of a dark gothic mansion at night, heavy fog. Use with heavy black/bottom gradient overlay.",
+        "usage": "Main landing hero background."
+      },
+      "provided_logo": {
+        "url": "https://customer-assets.emergentagent.com/job_535564d9-799e-4642-b186-394f0ab11df3/artifacts/rsfdijom_ffa2f81b404119670950330265bb8dce_.png",
+        "description": "CODEX gothic font with black background, cross silhouette, monochrome flowers",
+        "usage": "Use in the 'About/Lore' bento grid or floating in the hero section as a decorative crest, not as the primary navbar logo (use text for nav)."
+      },
+      "texture_bg": {
+        "url": "https://static.prod-images.emergentagent.com/jobs/535564d9-799e-4642-b186-394f0ab11df3/images/2a0662eb40492495727e984b6a794f8d1d6d27e33a055eebe6cea541a7a084a7.png",
+        "description": "Abstract dark texture with silver/red splatters.",
+        "usage": "Background for the Roster/Members section."
+      },
+      "form_bg": {
+        "url": "https://static.prod-images.emergentagent.com/jobs/535564d9-799e-4642-b186-394f0ab11df3/images/3c1a6b6afdc68e5e0a72948129e92c2328582357e99e2d93f95189b170e68465.png",
+        "description": "Vintage desk, mafia boss aesthetic.",
+        "usage": "Side-panel image next to the Application Form."
+      },
+      "city_night": {
+        "url": "https://images.unsplash.com/photo-1702332240877-07fd6fb1195f?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAzMzN8MHwxfHNlYXJjaHwzfHxkYXJrJTIwY2l0eSUyMG5pZ2h0JTIwY2luZW1hdGljfGVufDB8fHx8MTc3Njc4MzYwNnww&ixlib=rb-4.1.0&q=85",
+        "description": "Dark cinematic city street night.",
+        "usage": "Decorative element for the footer or 'Why Join Us' background."
+      }
+    }
+  },
+  "content_requirements": {
+    "language": "Russian (RU) strictly.",
+    "placeholder_rule": "Use 'неизвестно' (unknown) for any missing lore, history, or specific names/stats not provided in the prompt.",
+    "sections": [
+      {
+        "id": "hero",
+        "elements": [
+          "H1: 'C O D E X'",
+          "Subtitle: 'Семья сервера Redwood | Неизвестно'",
+          "CTA Button: 'Подать заявку' (Scroll to form)"
+        ]
+      },
+      {
+        "id": "lore",
+        "elements": [
+          "Section Title: 'О семье'",
+          "Content: Placeholders 'неизвестно' describing history and values.",
+          "Visual: The provided_logo image placed artistically in a bento card."
+        ]
+      },
+      {
+        "id": "roster",
+        "elements": [
+          "Section Title: 'Главы и Важные Люди'",
+          "Cards: Grid of members (Главы семьи, Важные люди). Name: 'Неизвестно', Role: 'Неизвестно'."
+        ]
+      },
+      {
+        "id": "application_form",
+        "elements": [
+          "Section Title: 'Анкета на вступление'",
+          "Fields required: Ник в игре (Nick), Discord, Возраст (Age), Статик ID (Static ID), Почему к нам? (Why join), Опыт РП (RP Experience).",
+          "Submit Button: 'Отправить заявку'."
+        ]
+      },
+      {
+        "id": "discord_cta",
+        "elements": [
+          "CTA Block: 'Наш Discord канал'",
+          "Button: 'Присоединиться'."
+        ]
+      }
+    ],
+    "admin_dashboard": {
+      "auth": "Login page at /admin. Hardcoded logic for now: User 'alex', Password '123'.",
+      "views": [
+        "Applications List (View pending, approve, reject).",
+        "Moderators Management (Assign moderators who can also view/process applications)."
+      ]
+    }
+  },
+  "animations": {
+    "hover": "Subtle opacity and border color changes. 300ms ease.",
+    "scroll": "Fade up text sections using Framer Motion (y: 20, opacity: 0 to 1).",
+    "images": "Scale background images on hover (scale 105%)."
+  },
+  "instructions_to_main_agent": [
+    "1. Setup React Router for '/' and '/admin'.",
+    "2. Setup Lucide-react for icons.",
+    "3. Apply fonts via Google Fonts in index.css: @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Manrope:wght@300;400;600&display=swap');",
+    "4. Use Framer Motion for scroll animations, but keep it performant and subtle (no chaotic bouncing).",
+    "5. Use Shadcn UI for the application form, login form, and admin data tables/cards.",
+    "6. Build a custom masonry/bento layout for the 'Lore' section.",
+    "7. Implement hardcoded mock login for 'alex'/'123' using simple Context or localStorage for MVP.",
+    "8. Ensure the aesthetic feels like a high-end mafia syndicate. No generic SaaS look. Use dark #050505 backgrounds and #8A0303 blood red accents.",
+    "9. Put data-testid attributes on all form inputs and submit buttons."
+  ]
+}
