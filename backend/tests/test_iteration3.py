@@ -88,17 +88,23 @@ class TestMembers:
         for n in ["Theo Codex", "Butcher Codex", "Eva Codex", "Bushido Codex", "Owner Codex"]:
             assert n in names
 
-    def test_moderator_forbidden(self, moderator_ctx):
+    def test_moderator_forbidden(self, moderator_ctx, admin_headers):
+        # need a real rank_id for the new schema
+        ranks = requests.get(f"{API}/ranks").json()
+        rid = ranks[-1]["id"]
         r = requests.post(f"{API}/members",
-                          json={"name": "TEST_X", "rank": "important"},
+                          json={"name": "TEST_X", "rank_id": rid},
                           headers=moderator_ctx["headers"])
         assert r.status_code == 403
 
     def test_admin_crud(self, admin_headers):
+        ranks = requests.get(f"{API}/ranks").json()
+        assert ranks, "no ranks seeded"
+        rid = ranks[-1]["id"]
         # create
         r = requests.post(f"{API}/members",
                           json={"name": "TEST_Member", "discord": "td", "tenure": "new",
-                                "rank": "important"}, headers=admin_headers)
+                                "rank_id": rid}, headers=admin_headers)
         assert r.status_code == 200, r.text
         mid = r.json()["id"]
         assert r.json()["name"] == "TEST_Member"
@@ -108,7 +114,7 @@ class TestMembers:
         # verify persisted via GET
         lst = requests.get(f"{API}/members").json()
         m = next((x for x in lst if x["id"] == mid), None)
-        assert m and m["name"] == "TEST_Member_Renamed" and m["rank"] == "important"
+        assert m and m["name"] == "TEST_Member_Renamed" and m["rank_id"] == rid
         # delete
         r3 = requests.delete(f"{API}/members/{mid}", headers=admin_headers)
         assert r3.status_code == 200

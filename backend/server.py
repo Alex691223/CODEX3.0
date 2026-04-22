@@ -118,19 +118,30 @@ class Member(BaseModel):
     name: str = Field(..., min_length=1, max_length=80)
     discord: str = Field("", max_length=80)
     tenure: str = Field("с момента основания", max_length=80)
-    rank: Literal["owner", "advisor", "important"]
+    rank_id: str = Field(..., min_length=1, max_length=64)
 
 class MemberUpdate(BaseModel):
     name: Optional[str] = Field(None, min_length=1, max_length=80)
     discord: Optional[str] = Field(None, max_length=80)
     tenure: Optional[str] = Field(None, max_length=80)
-    rank: Optional[Literal["owner", "advisor", "important"]] = None
+    rank_id: Optional[str] = Field(None, min_length=1, max_length=64)
+
+class Rank(BaseModel):
+    label: str = Field(..., min_length=1, max_length=60)
+    sort_order: int = 0
+
+class RankUpdate(BaseModel):
+    label: Optional[str] = Field(None, min_length=1, max_length=60)
+    sort_order: Optional[int] = None
+
+class FileContentUpdate(BaseModel):
+    content: str = Field(..., max_length=2_000_000)
 
 class SiteSettings(BaseModel):
     discord_url: Optional[str] = Field(None, max_length=500)
     hero_subtitle: Optional[str] = Field(None, max_length=400)
     territory_label: Optional[str] = Field(None, max_length=80)
-    territory_desc: Optional[str] = Field(None, max_length=200)
+    territory_desc: Optional[str] = Field(None, max_length=2000)
     history_text: Optional[str] = Field(None, max_length=2000)
     server_name: Optional[str] = Field(None, max_length=80)
     founded_year: Optional[str] = Field(None, max_length=16)
@@ -259,9 +270,11 @@ async def login(request: Request, body: LoginBody):
     user = await db.users.find_one({"username": username})
     if not user or not verify_password(body.password, user["password_hash"]):
         await record_failed_login(ip, username)
+        await log_action({"username": username, "role": "—"}, "auth.login_failed", ip)
         raise HTTPException(status_code=401, detail="Неверный логин или пароль")
     await clear_login_attempts(ip, username)
     token = create_access_token(user["id"], user["username"], user["role"])
+    await log_action(user, "auth.login", ip)
     return {"token": token, "user": {"id": user["id"], "username": user["username"], "role": user["role"]}}
 
 @api_router.get("/auth/me")
@@ -276,6 +289,7 @@ async def change_password(body: PasswordChangeBody, user: dict = Depends(get_cur
     if body.new_password == body.current_password:
         raise HTTPException(status_code=400, detail="Новый пароль должен отличаться от текущего")
     await db.users.update_one({"id": user["id"]}, {"$set": {"password_hash": hash_password(body.new_password)}})
+    await log_action(user, "auth.password_changed", user["username"])
     return {"ok": True}
 
 # ----- Moderators (admin only) -----
@@ -285,7 +299,7 @@ async def list_moderators(_: dict = Depends(require_admin)):
     return mods
 
 @api_router.post("/moderators")
-async def create_moderator(body: ModeratorCreate, _: dict = Depends(require_admin)):
+async def create_moderator(body: ModeratorCreate, user: dict = Depends(require_admin)):
     username = body.username.strip().lower()
     if not username:
         raise HTTPException(status_code=400, detail="Логин обязателен")
@@ -299,11 +313,11 @@ async def create_moderator(body: ModeratorCreate, _: dict = Depends(require_admi
         "role": "moderator", "created_at": now.isoformat(),
     }
     await db.users.insert_one(doc)
+    await log_action(user, "moderator.create", username, {"id": doc["id"]})
     return {"id": doc["id"], "username": doc["username"], "role": doc["role"], "created_at": now.isoformat()}
 
 @api_router.post("/moderators/{mod_id}/reset-password")
-async def reset_moderator_password(mod_id: str, body: PasswordChangeBody, _: dict = Depends(require_admin)):
-    # admin does not need current_password; reuse model but ignore it
+async def reset_moderator_password(mod_id: str, body: PasswordChangeBody, user: dict = Depends(require_admin)):
     if len(body.new_password) < 4:
         raise HTTPException(status_code=400, detail="Пароль слишком короткий")
     res = await db.users.update_one(
@@ -312,13 +326,16 @@ async def reset_moderator_password(mod_id: str, body: PasswordChangeBody, _: dic
     )
     if res.matched_count == 0:
         raise HTTPException(status_code=404, detail="Модератор не найден")
+    await log_action(user, "moderator.reset_password", mod_id)
     return {"ok": True}
 
 @api_router.delete("/moderators/{mod_id}")
-async def delete_moderator(mod_id: str, _: dict = Depends(require_admin)):
+async def delete_moderator(mod_id: str, user: dict = Depends(require_admin)):
+    m = await db.users.find_one({"id": mod_id, "role": "moderator"})
     res = await db.users.delete_one({"id": mod_id, "role": "moderator"})
     if res.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Модератор не найден")
+    await log_action(user, "moderator.delete", (m or {}).get("username", mod_id))
     return {"ok": True}
 
 # ----- Applications -----
@@ -365,19 +382,23 @@ async def list_applications(
 @api_router.patch("/applications/{app_id}")
 async def update_application_status(app_id: str, body: ApplicationStatusUpdate, user: dict = Depends(get_current_user)):
     now = datetime.now(timezone.utc)
+    app_doc = await db.applications.find_one({"id": app_id})
     res = await db.applications.update_one(
         {"id": app_id},
         {"$set": {"status": body.status, "processed_at": now.isoformat(), "processed_by": user["username"]}},
     )
     if res.matched_count == 0:
         raise HTTPException(status_code=404, detail="Заявка не найдена")
+    await log_action(user, f"application.{body.status}", (app_doc or {}).get("nickname", app_id), {"id": app_id})
     return {"ok": True, "status": body.status}
 
 @api_router.delete("/applications/{app_id}")
-async def delete_application(app_id: str, _: dict = Depends(require_admin)):
+async def delete_application(app_id: str, user: dict = Depends(require_admin)):
+    app_doc = await db.applications.find_one({"id": app_id})
     res = await db.applications.delete_one({"id": app_id})
     if res.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Заявка не найдена")
+    await log_action(user, "application.delete", (app_doc or {}).get("nickname", app_id))
     return {"ok": True}
 
 # ----- Settings (public GET, admin PUT) -----
@@ -401,13 +422,14 @@ async def get_settings():
     return out
 
 @api_router.put("/settings")
-async def update_settings(body: SiteSettings, _: dict = Depends(require_admin)):
+async def update_settings(body: SiteSettings, user: dict = Depends(require_admin)):
     updates: dict = {}
     for k, v in body.model_dump(exclude_unset=True).items():
         if v is not None:
             updates[k] = v
     if updates:
         await db.settings.update_one({"id": "site"}, {"$set": updates}, upsert=True)
+        await log_action(user, "settings.update", "site", {"keys": list(updates.keys())})
     s = await db.settings.find_one({"id": "site"}, {"_id": 0}) or {}
     out = {**DEFAULT_SETTINGS}
     for k in DEFAULT_SETTINGS:
@@ -422,34 +444,45 @@ async def list_members():
     return members
 
 @api_router.post("/members")
-async def create_member(body: Member, _: dict = Depends(require_admin)):
+async def create_member(body: Member, user: dict = Depends(require_admin)):
+    rank = await db.ranks.find_one({"id": body.rank_id})
+    if not rank:
+        raise HTTPException(status_code=400, detail="Указан несуществующий ранг")
     now = datetime.now(timezone.utc)
     last = await db.members.find({}, {"order": 1}).sort("order", -1).limit(1).to_list(1)
     order = (last[0]["order"] + 1) if last else 0
     doc = {
         "id": str(uuid.uuid4()),
         "name": body.name.strip(), "discord": body.discord.strip(),
-        "tenure": body.tenure.strip(), "rank": body.rank,
+        "tenure": body.tenure.strip(), "rank_id": body.rank_id,
         "order": order, "created_at": now.isoformat(),
     }
     await db.members.insert_one(doc.copy())
-    return {k: v for k, v in doc.items()}
+    await log_action(user, "member.create", doc["name"], {"id": doc["id"], "rank_id": doc["rank_id"]})
+    return doc
 
 @api_router.patch("/members/{member_id}")
-async def update_member(member_id: str, body: MemberUpdate, _: dict = Depends(require_admin)):
+async def update_member(member_id: str, body: MemberUpdate, user: dict = Depends(require_admin)):
     updates = {k: v for k, v in body.model_dump(exclude_unset=True).items() if v is not None}
+    if "rank_id" in updates:
+        rank = await db.ranks.find_one({"id": updates["rank_id"]})
+        if not rank:
+            raise HTTPException(status_code=400, detail="Указан несуществующий ранг")
     if not updates:
         return {"ok": True}
     res = await db.members.update_one({"id": member_id}, {"$set": updates})
     if res.matched_count == 0:
         raise HTTPException(status_code=404, detail="Участник не найден")
+    await log_action(user, "member.update", member_id, updates)
     return {"ok": True}
 
 @api_router.delete("/members/{member_id}")
-async def delete_member(member_id: str, _: dict = Depends(require_admin)):
+async def delete_member(member_id: str, user: dict = Depends(require_admin)):
+    m = await db.members.find_one({"id": member_id})
     res = await db.members.delete_one({"id": member_id})
     if res.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Участник не найден")
+    await log_action(user, "member.delete", (m or {}).get("name", member_id))
     return {"ok": True}
 
 # ----- Visits -----
@@ -520,7 +553,121 @@ async def analytics(_: dict = Depends(get_current_user)):
         "drive": {"files": total_files, "sheets": total_sheets, "categories": total_categories},
     }
 
-# ----- Drive: Categories -----
+# ----- Audit log -----
+TEXT_EDITABLE_EXT = {"txt", "md", "csv", "json", "xml", "html", "css", "js", "ts", "py", "yaml", "yml", "log"}
+TEXT_EDITABLE_MAX = 1_000_000  # 1 MB
+
+async def log_action(actor: Optional[dict], action: str, target: str = "", meta: Optional[dict] = None):
+    try:
+        await db.audit_logs.insert_one({
+            "id": str(uuid.uuid4()),
+            "actor": (actor or {}).get("username", "—"),
+            "actor_role": (actor or {}).get("role", "—"),
+            "action": action,
+            "target": target[:200] if target else "",
+            "meta": meta or {},
+            "at": datetime.now(timezone.utc).isoformat(),
+        })
+    except Exception as e:
+        logger.warning(f"audit log failed: {e}")
+
+@api_router.get("/audit")
+async def list_audit(limit: int = 200, _: dict = Depends(get_current_user)):
+    limit = max(1, min(limit, 500))
+    logs = await db.audit_logs.find({}, {"_id": 0}).sort("at", -1).to_list(limit)
+    return logs
+
+# ----- Ranks -----
+DEFAULT_RANKS = [
+    {"key": "owner", "label": "Глава семьи", "sort_order": 0},
+    {"key": "advisor", "label": "Советник", "sort_order": 1},
+    {"key": "important", "label": "Важный человек", "sort_order": 2},
+]
+
+@api_router.get("/ranks")
+async def list_ranks():
+    ranks = await db.ranks.find({}, {"_id": 0}).sort("sort_order", 1).to_list(200)
+    return ranks
+
+@api_router.post("/ranks")
+async def create_rank(body: Rank, user: dict = Depends(require_admin)):
+    last = await db.ranks.find({}, {"sort_order": 1}).sort("sort_order", -1).limit(1).to_list(1)
+    order = body.sort_order if body.sort_order is not None else ((last[0]["sort_order"] + 1) if last else 0)
+    doc = {
+        "id": str(uuid.uuid4()),
+        "label": body.label.strip(),
+        "sort_order": order,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.ranks.insert_one(doc.copy())
+    await log_action(user, "rank.create", doc["label"], {"id": doc["id"]})
+    return doc
+
+@api_router.patch("/ranks/{rank_id}")
+async def update_rank(rank_id: str, body: RankUpdate, user: dict = Depends(require_admin)):
+    updates = {k: v for k, v in body.model_dump(exclude_unset=True).items() if v is not None}
+    if not updates:
+        return {"ok": True}
+    res = await db.ranks.update_one({"id": rank_id}, {"$set": updates})
+    if res.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Ранг не найден")
+    await log_action(user, "rank.update", rank_id, updates)
+    return {"ok": True}
+
+@api_router.delete("/ranks/{rank_id}")
+async def delete_rank(rank_id: str, user: dict = Depends(require_admin)):
+    # prevent deleting a rank that has members
+    n = await db.members.count_documents({"rank_id": rank_id})
+    if n > 0:
+        raise HTTPException(status_code=400, detail=f"В этом ранге есть участники ({n}). Перенесите их сначала.")
+    res = await db.ranks.delete_one({"id": rank_id})
+    if res.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Ранг не найден")
+    await log_action(user, "rank.delete", rank_id)
+    return {"ok": True}
+
+# ----- Drive file content (text files only) -----
+@api_router.get("/drive/files/{file_id}/content")
+async def get_file_content(file_id: str, _: dict = Depends(get_current_user)):
+    record = await db.drive_files.find_one({"id": file_id, "is_deleted": False})
+    if not record:
+        raise HTTPException(status_code=404, detail="Файл не найден")
+    ext = (record.get("ext") or "").lower()
+    if ext not in TEXT_EDITABLE_EXT:
+        raise HTTPException(status_code=400, detail="Этот тип файла нельзя открыть в редакторе")
+    if (record.get("size") or 0) > TEXT_EDITABLE_MAX:
+        raise HTTPException(status_code=400, detail="Файл слишком большой для редактирования")
+    data, _ct = get_object(record["storage_path"])
+    try:
+        text = data.decode("utf-8")
+    except UnicodeDecodeError:
+        try:
+            text = data.decode("cp1251")
+        except UnicodeDecodeError:
+            raise HTTPException(status_code=400, detail="Не удалось прочитать файл как текст")
+    return {"content": text, "ext": ext, "filename": record.get("original_filename", "")}
+
+@api_router.patch("/drive/files/{file_id}/content")
+async def update_file_content(file_id: str, body: FileContentUpdate, user: dict = Depends(get_current_user)):
+    record = await db.drive_files.find_one({"id": file_id, "is_deleted": False})
+    if not record:
+        raise HTTPException(status_code=404, detail="Файл не найден")
+    # permission: admin or the uploader
+    if user.get("role") != "admin" and record.get("uploader_id") != user.get("id"):
+        raise HTTPException(status_code=403, detail="Нет прав на редактирование этого файла")
+    ext = (record.get("ext") or "").lower()
+    if ext not in TEXT_EDITABLE_EXT:
+        raise HTTPException(status_code=400, detail="Этот тип файла нельзя редактировать")
+    data = body.content.encode("utf-8")
+    if len(data) > TEXT_EDITABLE_MAX:
+        raise HTTPException(status_code=400, detail="Текст слишком большой")
+    put_object(record["storage_path"], data, record.get("content_type") or "text/plain; charset=utf-8")
+    await db.drive_files.update_one(
+        {"id": file_id},
+        {"$set": {"size": len(data), "updated_at": datetime.now(timezone.utc).isoformat()}},
+    )
+    await log_action(user, "file.edit", record.get("original_filename", ""), {"id": file_id, "size": len(data)})
+    return {"ok": True, "size": len(data)}
 @api_router.get("/drive/categories")
 async def list_categories(_: dict = Depends(get_current_user)):
     cats = await db.categories.find({}, {"_id": 0}).sort("created_at", -1).to_list(200)
@@ -534,15 +681,17 @@ async def create_category(body: CategoryCreate, user: dict = Depends(get_current
         "created_by": user["username"], "created_at": now.isoformat(),
     }
     await db.categories.insert_one(doc.copy())
+    await log_action(user, "category.create", doc["name"], {"id": doc["id"]})
     return doc
 
 @api_router.delete("/drive/categories/{cat_id}")
-async def delete_category(cat_id: str, _: dict = Depends(require_admin)):
+async def delete_category(cat_id: str, user: dict = Depends(require_admin)):
+    cat = await db.categories.find_one({"id": cat_id})
     res = await db.categories.delete_one({"id": cat_id})
     if res.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Категория не найдена")
-    # orphan files (keep them, set category_id to null)
     await db.drive_files.update_many({"category_id": cat_id}, {"$set": {"category_id": None}})
+    await log_action(user, "category.delete", (cat or {}).get("name", cat_id))
     return {"ok": True}
 
 # ----- Drive: Files -----
@@ -596,6 +745,7 @@ async def upload_drive_file(
         "day": now.date().isoformat(),
     }
     await db.drive_files.insert_one(doc.copy())
+    await log_action(user, "file.upload", filename, {"id": doc["id"], "size": doc["size"]})
     return {k: v for k, v in doc.items() if k != "storage_path"}
 
 @api_router.get("/drive/files")
@@ -656,9 +806,11 @@ async def delete_drive_file(file_id: str, user: dict = Depends(get_current_user)
     query: dict = {"id": file_id, "is_deleted": False}
     if user.get("role") != "admin":
         query["uploader_id"] = user["id"]
+    f = await db.drive_files.find_one(query)
     res = await db.drive_files.update_one(query, {"$set": {"is_deleted": True}})
     if res.matched_count == 0:
         raise HTTPException(status_code=404, detail="Файл не найден или нет доступа")
+    await log_action(user, "file.delete", (f or {}).get("original_filename", file_id))
     return {"ok": True}
 
 # ----- Drive: Sheets -----
@@ -676,6 +828,7 @@ async def create_sheet(body: SheetCreate, user: dict = Depends(get_current_user)
         "day": now.date().isoformat(),
     }
     await db.sheets.insert_one(doc.copy())
+    await log_action(user, "sheet.create", doc["name"], {"id": doc["id"]})
     return doc
 
 @api_router.get("/drive/sheets")
@@ -691,7 +844,7 @@ async def get_sheet(sheet_id: str, _: dict = Depends(get_current_user)):
     return s
 
 @api_router.patch("/drive/sheets/{sheet_id}")
-async def update_sheet(sheet_id: str, body: SheetUpdate, _: dict = Depends(get_current_user)):
+async def update_sheet(sheet_id: str, body: SheetUpdate, user: dict = Depends(get_current_user)):
     updates: dict = {"updated_at": datetime.now(timezone.utc).isoformat()}
     if body.name is not None:
         updates["name"] = body.name.strip()
@@ -705,22 +858,25 @@ async def update_sheet(sheet_id: str, body: SheetUpdate, _: dict = Depends(get_c
     res = await db.sheets.update_one({"id": sheet_id}, {"$set": updates})
     if res.matched_count == 0:
         raise HTTPException(status_code=404, detail="Таблица не найдена")
+    await log_action(user, "sheet.update", sheet_id)
     return {"ok": True}
 
 @api_router.delete("/drive/sheets/{sheet_id}")
-async def delete_sheet(sheet_id: str, _: dict = Depends(get_current_user)):
+async def delete_sheet(sheet_id: str, user: dict = Depends(get_current_user)):
+    s = await db.sheets.find_one({"id": sheet_id})
     res = await db.sheets.delete_one({"id": sheet_id})
     if res.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Таблица не найдена")
+    await log_action(user, "sheet.delete", (s or {}).get("name", sheet_id))
     return {"ok": True}
 
 # ---------- Seeding & startup ----------
 DEFAULT_MEMBERS = [
-    {"name": "Theo Codex", "discord": "oksfor", "tenure": "с момента основания", "rank": "owner"},
-    {"name": "Butcher Codex", "discord": "snookesjk", "tenure": "с момента основания", "rank": "owner"},
-    {"name": "Eva Codex", "discord": "mesaiq", "tenure": "с момента основания", "rank": "advisor"},
-    {"name": "Bushido Codex", "discord": "cos_tas4", "tenure": "с момента основания", "rank": "advisor"},
-    {"name": "Owner Codex", "discord": "qweurip", "tenure": "с момента основания", "rank": "important"},
+    {"name": "Theo Codex", "discord": "oksfor", "tenure": "с момента основания", "rank_key": "owner"},
+    {"name": "Butcher Codex", "discord": "snookesjk", "tenure": "с момента основания", "rank_key": "owner"},
+    {"name": "Eva Codex", "discord": "mesaiq", "tenure": "с момента основания", "rank_key": "advisor"},
+    {"name": "Bushido Codex", "discord": "cos_tas4", "tenure": "с момента основания", "rank_key": "advisor"},
+    {"name": "Owner Codex", "discord": "qweurip", "tenure": "с момента основания", "rank_key": "important"},
 ]
 
 async def seed_admin():
@@ -750,16 +906,47 @@ async def seed_settings():
     elif existing is not None and not (existing.get("discord_url") or "").startswith("https://") and DEFAULT_DISCORD_URL:
         await db.settings.update_one({"id": "site"}, {"$set": {"discord_url": DEFAULT_DISCORD_URL}})
 
-async def seed_members():
+async def seed_ranks() -> dict:
+    """Seed default ranks. Return map key -> rank_id."""
+    key_to_id: dict = {}
+    for r in DEFAULT_RANKS:
+        existing = await db.ranks.find_one({"key": r["key"]})
+        if existing:
+            key_to_id[r["key"]] = existing["id"]
+            continue
+        doc = {
+            "id": str(uuid.uuid4()),
+            "key": r["key"],
+            "label": r["label"],
+            "sort_order": r["sort_order"],
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        }
+        await db.ranks.insert_one(doc.copy())
+        key_to_id[r["key"]] = doc["id"]
+    return key_to_id
+
+async def migrate_members_rank(key_to_id: dict):
+    async for m in db.members.find({"rank": {"$exists": True}}):
+        rid = key_to_id.get(m.get("rank"))
+        if rid:
+            await db.members.update_one(
+                {"_id": m["_id"]},
+                {"$set": {"rank_id": rid}, "$unset": {"rank": ""}},
+            )
+
+async def seed_members(key_to_id: dict):
     count = await db.members.count_documents({})
     if count > 0:
         return
     now = datetime.now(timezone.utc).isoformat()
     for i, m in enumerate(DEFAULT_MEMBERS):
+        rid = key_to_id.get(m["rank_key"])
+        if not rid:
+            continue
         await db.members.insert_one({
             "id": str(uuid.uuid4()),
             "name": m["name"], "discord": m["discord"],
-            "tenure": m["tenure"], "rank": m["rank"],
+            "tenure": m["tenure"], "rank_id": rid,
             "order": i, "created_at": now,
         })
 
@@ -773,10 +960,14 @@ async def on_startup():
     await db.login_attempts.create_index("key")
     await db.login_attempts.create_index("uname")
     await db.login_attempts.create_index("at", expireAfterSeconds=3600)
-    await db.members.create_index("rank")
+    await db.members.create_index("rank_id")
+    await db.ranks.create_index("key", unique=True, sparse=True)
+    await db.audit_logs.create_index("at")
     await seed_admin()
     await seed_settings()
-    await seed_members()
+    key_to_id = await seed_ranks()
+    await migrate_members_rank(key_to_id)
+    await seed_members(key_to_id)
     try:
         init_storage()
     except Exception as e:

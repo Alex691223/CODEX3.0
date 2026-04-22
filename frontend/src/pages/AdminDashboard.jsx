@@ -40,6 +40,7 @@ import DrivePanel from "@/components/DrivePanel";
 import AnalyticsPanel from "@/components/AnalyticsPanel";
 import SettingsPanel from "@/components/SettingsPanel";
 import ChangePasswordForm from "@/components/ChangePasswordForm";
+import AuditLogPanel from "@/components/AuditLogPanel";
 
 export default function AdminDashboard() {
   const { user, logout } = useAuth();
@@ -167,6 +168,9 @@ export default function AdminDashboard() {
             <TabTrigger value="analytics" testId="tab-analytics">
               Аналитика
             </TabTrigger>
+            <TabTrigger value="audit" testId="tab-audit">
+              Журнал
+            </TabTrigger>
             {isAdmin && (
               <TabTrigger value="moderators" testId="tab-moderators">
                 Модераторы
@@ -235,6 +239,10 @@ export default function AdminDashboard() {
 
           <TabsContent value="analytics" className="mt-8">
             <AnalyticsPanel />
+          </TabsContent>
+
+          <TabsContent value="audit" className="mt-8">
+            <AuditLogPanel />
           </TabsContent>
 
           {isAdmin && (

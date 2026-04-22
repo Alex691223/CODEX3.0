@@ -1,0 +1,41 @@
+{
+  "summary": "Iteration 4 verification — both backend and frontend. Backend: 78/78 pytest pass (full suite incl. iteration 1-3 + new iteration4). New tests cover audit log (auth/login/settings/application instrumentation), ranks CRUD with admin-only mutations + delete-blocked-when-members, Member.rank_id schema (legacy {rank} → 422, invalid rank_id → 400, all migrated members have rank_id), drive file content GET/PATCH (text-only, ext gating, admin-edit-any vs moderator-edit-own-only), and territory_desc save/length validation. Frontend: login OK; Журнал tab (tab-audit) loads with 238 audit entries, search filter narrows to 84 'auth' entries; Settings.territory_desc is TEXTAREA with multi-line content; Ranks editor (rank-new-label/add/up/down/save/delete) functions end-to-end (added 'TEST_E2E_R', renamed via save, deleted via confirm dialog); Home Кодекс block no longer shows 'Под защитой семьи'; Drive: text file (.txt) opens TextFileEditor with text-editor-textarea/save and saves successfully (toast 'Файл сохранён' shown); Sheet editor toolbar: ALL 10 new testids present and functional — drive-sheet-import-csv-btn, drive-sheet-import-csv-input, drive-sheet-clear-btn, drive-sheet-find, drive-sheet-replace, drive-sheet-replace-btn (replace executes — toast 'Заменено: N' shown), drive-col-sort-asc-0, drive-col-sort-desc-0, drive-row-dup-0, drive-col-sum-0 (sums row visible at bottom). No regressions to iteration 1-3 features (security headers, brute-force lockout, change-password, drive categories, analytics, members CRUD, app filters all still pass).",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Drive sheets", "issues": ["Existing user-entered sheet data contains profanity (sheet titled 'состав пениса', cell value 'хуй'). Cosmetic; consider seeding cleaner demo content or admin moderation."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration4.py",
+    "/app/backend/tests/test_iteration3.py",
+    "/app/backend/tests/backend_test.py",
+    "/app/test_reports/pytest/iteration4_full_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Member model now requires rank_id (min_length=1) — legacy {rank: ...} payloads correctly rejected with 422. Good migration story: startup runs seed_ranks() then migrate_members_rank() to convert old 'rank' string → 'rank_id' UUID, all 5 seeded members verified to have rank_id post-migration.",
+    "DELETE /api/ranks/{id} blocks deletion when members exist (HTTP 400 with member count in error message) — prevents orphan rank_ids. Solid.",
+    "PATCH /api/drive/files/{id}/content permission check is correct: admin OR uploader_id == user.id, otherwise 403. TEXT_EDITABLE_EXT whitelist gates non-text files at 400 on both GET and PATCH. UTF-8 → cp1251 fallback decode is a nice touch for legacy Cyrillic txt files.",
+    "log_action wrapped in try/except so audit failures never break business logic. Audit entries indexed on 'at' for efficient sort-desc queries. Limit clamp [1, 500] prevents abuse.",
+    "members-add-rank Select dropdown is correctly populated dynamically from /api/ranks (no hardcoded enum) — consistent with the new schema.",
+    "Sheet editor toolbar implementation is comprehensive — find/replace updates Заменено counter, per-column sort respects numeric vs string, column sums row pre-renders only numeric totals, duplicate row inserts after current.",
+    "Minor: settings.update audit log meta could include the actual changed values (not just keys) for forensic completeness — but keys-only is acceptable for privacy."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iteration4.py (NEW — 19 tests covering iteration 4)",
+    "/app/backend/tests/test_iteration3.py (TestMembers updated to use rank_id from /api/ranks instead of legacy 'rank' string — needed because Member schema changed)"
+  ],
+  "success_rate": {
+    "backend": "100% (78/78 pytest pass — full regression + new iteration4)",
+    "frontend": "100% — all iteration-4 testids verified present and functional (audit, settings textarea, ranks editor, text editor save, sheet toolbar 10/10, Home phrase removal)"
+  },
+  "test_credentials": "admin alex / 123 (seeded). Test moderator created/cleaned per session.",
+  "seed_data_creation": "TEST_-prefixed members, applications, files, ranks, moderators created and torn down by tests. Default ranks (Глава семьи / Советник / Важный человек) seeded by server startup.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Run with: export $(grep -v '^#' /app/frontend/.env | xargs) && pytest /app/backend/tests/ -v. moderator_ctx fixture in test_iteration4 has a 15s retry on login to absorb residual rate-limiting from TestBruteForce in iteration3 (run order is alphabetical so iteration3 runs first). Note: members-add-rank dropdown is conditionally rendered only when the 'Add member' form is open (members-add-toggle); selector exists in code at SettingsPanel.jsx:445.",
+  "rca of the issue": "N/A — no bugs. Initial test run had two false-positive failures: (1) used wrong endpoint /applications/{id}/status instead of /applications/{id} for status PATCH (test bug, fixed); (2) moderator login fixture failed with KeyError 'token' when run after TestBruteForce due to residual lockout — added a 15s wait + retry to make the fixture robust across run orderings."
+}

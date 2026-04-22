@@ -16,19 +16,23 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
-import { Plus, Trash2, Save, Settings as SettingsIcon, Users2 } from "lucide-react";
+import {
+  Plus,
+  Trash2,
+  Save,
+  Settings as SettingsIcon,
+  Users2,
+  Crown,
+  ArrowUp,
+  ArrowDown,
+} from "lucide-react";
 import api, { formatApiErrorDetail } from "@/lib/api";
-
-const RANKS = [
-  { value: "owner", label: "Глава семьи" },
-  { value: "advisor", label: "Советник" },
-  { value: "important", label: "Важный человек" },
-];
 
 export default function SettingsPanel() {
   const [settings, setSettings] = useState(null);
   const [loading, setLoading] = useState(false);
   const [members, setMembers] = useState([]);
+  const [ranks, setRanks] = useState([]);
 
   const loadSettings = useCallback(async () => {
     try {
@@ -46,10 +50,18 @@ export default function SettingsPanel() {
     } catch (_) {}
   }, []);
 
+  const loadRanks = useCallback(async () => {
+    try {
+      const { data } = await api.get("/ranks");
+      setRanks((data || []).slice().sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0)));
+    } catch (_) {}
+  }, []);
+
   useEffect(() => {
     loadSettings();
     loadMembers();
-  }, [loadSettings, loadMembers]);
+    loadRanks();
+  }, [loadSettings, loadMembers, loadRanks]);
 
   const saveSettings = async () => {
     setLoading(true);
@@ -73,15 +85,13 @@ export default function SettingsPanel() {
 
   return (
     <div data-testid="settings-panel" className="space-y-10">
-      {/* Site content */}
       <section className="border border-zinc-900 bg-[#0a0a0a] p-8">
         <div className="flex items-center gap-3 mb-6">
           <SettingsIcon className="w-5 h-5 text-[#8A0303]" />
           <div>
             <h2 className="font-display text-xl uppercase">Контент сайта</h2>
             <p className="text-zinc-500 text-sm mt-1">
-              Тексты на главной странице редактируются здесь. Изменения видны сразу после
-              сохранения.
+              Тексты на главной странице редактируются здесь. Изменения видны сразу после сохранения.
             </p>
           </div>
         </div>
@@ -106,12 +116,6 @@ export default function SettingsPanel() {
             onChange={(v) => setSettings({ ...settings, territory_label: v })}
           />
           <Field
-            label="Описание территории"
-            testId="settings-territory-desc"
-            value={settings.territory_desc || ""}
-            onChange={(v) => setSettings({ ...settings, territory_desc: v })}
-          />
-          <Field
             label="Discord URL"
             testId="settings-discord-url"
             value={settings.discord_url || ""}
@@ -121,6 +125,13 @@ export default function SettingsPanel() {
         </div>
 
         <div className="mt-5 space-y-5">
+          <TextField
+            label="Описание территории («Тени Redwood...»)"
+            testId="settings-territory-desc"
+            rows={4}
+            value={settings.territory_desc || ""}
+            onChange={(v) => setSettings({ ...settings, territory_desc: v })}
+          />
           <TextField
             label="Подзаголовок на главной (Hero)"
             testId="settings-hero-subtitle"
@@ -148,6 +159,21 @@ export default function SettingsPanel() {
         </Button>
       </section>
 
+      {/* Ranks editor */}
+      <section className="border border-zinc-900 bg-[#0a0a0a] p-8">
+        <div className="flex items-center gap-3 mb-6">
+          <Crown className="w-5 h-5 text-[#8A0303]" />
+          <div>
+            <h2 className="font-display text-xl uppercase">Звания (иерархия)</h2>
+            <p className="text-zinc-500 text-sm mt-1">
+              Создавайте свои звания и расставляйте их по порядку. Порядок определяет положение
+              блока на главной.
+            </p>
+          </div>
+        </div>
+        <RanksEditor ranks={ranks} reload={loadRanks} membersReload={loadMembers} />
+      </section>
+
       {/* Members editor */}
       <section className="border border-zinc-900 bg-[#0a0a0a] p-8">
         <div className="flex items-center gap-3 mb-6">
@@ -155,27 +181,219 @@ export default function SettingsPanel() {
           <div>
             <h2 className="font-display text-xl uppercase">Состав семьи</h2>
             <p className="text-zinc-500 text-sm mt-1">
-              Редактируйте главы, советников и важных людей — изменения сразу попадают на главную.
+              Редактируйте участников — изменения сразу попадают на главную.
             </p>
           </div>
         </div>
-        <MembersEditor members={members} reload={loadMembers} />
+        <MembersEditor members={members} ranks={ranks} reload={loadMembers} />
       </section>
     </div>
   );
 }
 
-function MembersEditor({ members, reload }) {
+function RanksEditor({ ranks, reload, membersReload }) {
+  const [label, setLabel] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const create = async () => {
+    if (!label.trim()) return;
+    setSaving(true);
+    try {
+      await api.post("/ranks", { label: label.trim(), sort_order: (ranks[ranks.length - 1]?.sort_order ?? -1) + 1 });
+      toast.success("Звание создано");
+      setLabel("");
+      reload();
+    } catch (err) {
+      toast.error(formatApiErrorDetail(err?.response?.data?.detail) || "Ошибка");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const rename = async (r, newLabel) => {
+    try {
+      await api.patch(`/ranks/${r.id}`, { label: newLabel });
+      toast.success("Звание переименовано");
+      reload();
+    } catch (err) {
+      toast.error(formatApiErrorDetail(err?.response?.data?.detail) || "Ошибка");
+    }
+  };
+
+  const remove = async (id) => {
+    try {
+      await api.delete(`/ranks/${id}`);
+      toast.success("Звание удалено");
+      reload();
+      membersReload();
+    } catch (err) {
+      toast.error(formatApiErrorDetail(err?.response?.data?.detail) || "Ошибка");
+    }
+  };
+
+  const move = async (idx, dir) => {
+    const j = idx + dir;
+    if (j < 0 || j >= ranks.length) return;
+    const a = ranks[idx];
+    const b = ranks[j];
+    try {
+      await api.patch(`/ranks/${a.id}`, { sort_order: b.sort_order });
+      await api.patch(`/ranks/${b.id}`, { sort_order: a.sort_order });
+      reload();
+    } catch (err) {
+      toast.error(formatApiErrorDetail(err?.response?.data?.detail) || "Ошибка");
+    }
+  };
+
+  return (
+    <div>
+      <div className="border border-[#8A0303]/40 bg-black/60 p-4 grid grid-cols-1 md:grid-cols-3 gap-3 items-end mb-5">
+        <div className="md:col-span-2">
+          <Label className="text-[10px] uppercase tracking-[0.35em] text-zinc-500">
+            Новое звание
+          </Label>
+          <Input
+            value={label}
+            onChange={(e) => setLabel(e.target.value)}
+            placeholder="напр. Боец / Ветеран / Легенда"
+            data-testid="rank-new-label"
+            className="rounded-none bg-black border-zinc-800 text-zinc-100 h-10 mt-2"
+          />
+        </div>
+        <Button
+          onClick={create}
+          disabled={saving || !label.trim()}
+          data-testid="rank-add-btn"
+          className="rounded-none bg-[#8A0303] hover:bg-[#A10A0A] text-white h-10 uppercase tracking-[0.25em] text-[11px] disabled:opacity-50"
+        >
+          <Plus className="w-3.5 h-3.5 mr-2" /> Создать
+        </Button>
+      </div>
+
+      {ranks.length === 0 ? (
+        <div className="border border-zinc-900 bg-black/40 p-8 text-center text-zinc-500">
+          Званий пока нет
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {ranks.map((r, i) => (
+            <RankRow
+              key={r.id}
+              rank={r}
+              onRename={(v) => rename(r, v)}
+              onRemove={() => remove(r.id)}
+              onUp={() => move(i, -1)}
+              onDown={() => move(i, 1)}
+              upDisabled={i === 0}
+              downDisabled={i === ranks.length - 1}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function RankRow({ rank, onRename, onRemove, onUp, onDown, upDisabled, downDisabled }) {
+  const [label, setLabel] = useState(rank.label);
+  const dirty = label !== rank.label;
+  return (
+    <div
+      data-testid={`rank-row-${rank.id}`}
+      className="border border-zinc-900 bg-black/30 p-3 md:p-4 flex items-center gap-3 flex-wrap"
+    >
+      <div className="flex items-center gap-1">
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={onUp}
+          disabled={upDisabled}
+          data-testid={`rank-up-${rank.id}`}
+          className="rounded-none border-zinc-800 bg-transparent hover:bg-zinc-900 hover:text-white text-zinc-400 h-9 w-9 p-0 disabled:opacity-40"
+        >
+          <ArrowUp className="w-3.5 h-3.5" />
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={onDown}
+          disabled={downDisabled}
+          data-testid={`rank-down-${rank.id}`}
+          className="rounded-none border-zinc-800 bg-transparent hover:bg-zinc-900 hover:text-white text-zinc-400 h-9 w-9 p-0 disabled:opacity-40"
+        >
+          <ArrowDown className="w-3.5 h-3.5" />
+        </Button>
+      </div>
+      <Input
+        value={label}
+        onChange={(e) => setLabel(e.target.value)}
+        data-testid={`rank-label-${rank.id}`}
+        className="rounded-none bg-black border-zinc-800 text-zinc-100 h-10 flex-1 min-w-[180px]"
+      />
+      {rank.key && (
+        <span className="text-[10px] uppercase tracking-[0.3em] text-zinc-600">
+          системный: {rank.key}
+        </span>
+      )}
+      <Button
+        onClick={() => onRename(label)}
+        disabled={!dirty || !label.trim()}
+        data-testid={`rank-save-${rank.id}`}
+        className="rounded-none bg-[#8A0303] hover:bg-[#A10A0A] text-white h-10 uppercase tracking-[0.25em] text-[11px] disabled:opacity-40"
+      >
+        Сохранить
+      </Button>
+      <AlertDialog>
+        <AlertDialogTrigger asChild>
+          <Button
+            variant="outline"
+            data-testid={`rank-delete-${rank.id}`}
+            className="rounded-none border-zinc-800 bg-transparent hover:bg-[#1a0404] hover:text-[#ff9b9b] text-zinc-500 h-10"
+          >
+            <Trash2 className="w-3.5 h-3.5 mr-2" /> Удалить
+          </Button>
+        </AlertDialogTrigger>
+        <AlertDialogContent className="bg-[#0a0a0a] border-zinc-800 rounded-none">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Удалить звание?</AlertDialogTitle>
+            <AlertDialogDescription className="text-zinc-400">
+              Удалить можно только пустое звание. Сначала перенесите участников.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="rounded-none border-zinc-800 bg-transparent hover:bg-zinc-900">
+              Отмена
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={onRemove}
+              className="rounded-none bg-[#8A0303] hover:bg-[#A10A0A]"
+            >
+              Удалить
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  );
+}
+
+function MembersEditor({ members, ranks, reload }) {
   const [adding, setAdding] = useState(false);
-  const [draft, setDraft] = useState({ name: "", discord: "", tenure: "с момента основания", rank: "important" });
+  const defaultRank = ranks[0]?.id || "";
+  const [draft, setDraft] = useState({ name: "", discord: "", tenure: "с момента основания", rank_id: defaultRank });
+
+  useEffect(() => {
+    if (!draft.rank_id && ranks[0]) setDraft((d) => ({ ...d, rank_id: ranks[0].id }));
+  }, [ranks, draft.rank_id]);
 
   const save = async () => {
     if (!draft.name.trim()) return toast.error("Введите имя");
+    if (!draft.rank_id) return toast.error("Выберите звание");
     try {
       await api.post("/members", draft);
       toast.success("Участник добавлен");
       setAdding(false);
-      setDraft({ name: "", discord: "", tenure: "с момента основания", rank: "important" });
+      setDraft({ name: "", discord: "", tenure: "с момента основания", rank_id: ranks[0]?.id || "" });
       reload();
     } catch (err) {
       toast.error(formatApiErrorDetail(err?.response?.data?.detail) || "Ошибка");
@@ -221,20 +439,17 @@ function MembersEditor({ members, reload }) {
             testId="members-add-tenure"
           />
           <div className="space-y-2">
-            <Label className="text-[10px] uppercase tracking-[0.35em] text-zinc-500">Ранг</Label>
-            <Select
-              value={draft.rank}
-              onValueChange={(v) => setDraft({ ...draft, rank: v })}
-            >
+            <Label className="text-[10px] uppercase tracking-[0.35em] text-zinc-500">Звание</Label>
+            <Select value={draft.rank_id} onValueChange={(v) => setDraft({ ...draft, rank_id: v })}>
               <SelectTrigger
                 data-testid="members-add-rank"
                 className="rounded-none bg-black border-zinc-800 text-zinc-100 h-10"
               >
-                <SelectValue />
+                <SelectValue placeholder="Выбери звание" />
               </SelectTrigger>
               <SelectContent className="bg-[#0a0a0a] border-zinc-800 text-zinc-100 rounded-none">
-                {RANKS.map((r) => (
-                  <SelectItem key={r.value} value={r.value} className="rounded-none">
+                {ranks.map((r) => (
+                  <SelectItem key={r.id} value={r.id} className="rounded-none">
                     {r.label}
                   </SelectItem>
                 ))}
@@ -252,16 +467,13 @@ function MembersEditor({ members, reload }) {
       )}
 
       {members.length === 0 ? (
-        <div
-          data-testid="members-empty"
-          className="border border-zinc-900 bg-black/40 p-8 text-center text-zinc-500"
-        >
+        <div data-testid="members-empty" className="border border-zinc-900 bg-black/40 p-8 text-center text-zinc-500">
           Состав семьи пустой.
         </div>
       ) : (
         <div className="space-y-2">
           {members.map((m) => (
-            <MemberRow key={m.id} member={m} reload={reload} />
+            <MemberRow key={m.id} member={m} ranks={ranks} reload={reload} />
           ))}
         </div>
       )}
@@ -269,14 +481,14 @@ function MembersEditor({ members, reload }) {
   );
 }
 
-function MemberRow({ member, reload }) {
+function MemberRow({ member, ranks, reload }) {
   const [form, setForm] = useState(member);
   const [saving, setSaving] = useState(false);
   const dirty =
     form.name !== member.name ||
     form.discord !== member.discord ||
     form.tenure !== member.tenure ||
-    form.rank !== member.rank;
+    form.rank_id !== member.rank_id;
 
   const save = async () => {
     setSaving(true);
@@ -285,7 +497,7 @@ function MemberRow({ member, reload }) {
         name: form.name,
         discord: form.discord,
         tenure: form.tenure,
-        rank: form.rank,
+        rank_id: form.rank_id,
       });
       toast.success("Сохранено");
       reload();
@@ -330,17 +542,17 @@ function MemberRow({ member, reload }) {
         testId={`member-tenure-${member.id}`}
       />
       <div className="space-y-2">
-        <Label className="text-[10px] uppercase tracking-[0.35em] text-zinc-500">Ранг</Label>
-        <Select value={form.rank} onValueChange={(v) => setForm({ ...form, rank: v })}>
+        <Label className="text-[10px] uppercase tracking-[0.35em] text-zinc-500">Звание</Label>
+        <Select value={form.rank_id || ""} onValueChange={(v) => setForm({ ...form, rank_id: v })}>
           <SelectTrigger
             data-testid={`member-rank-${member.id}`}
             className="rounded-none bg-black border-zinc-800 text-zinc-100 h-10"
           >
-            <SelectValue />
+            <SelectValue placeholder="Не задано" />
           </SelectTrigger>
           <SelectContent className="bg-[#0a0a0a] border-zinc-800 text-zinc-100 rounded-none">
-            {RANKS.map((r) => (
-              <SelectItem key={r.value} value={r.value} className="rounded-none">
+            {ranks.map((r) => (
+              <SelectItem key={r.id} value={r.id} className="rounded-none">
                 {r.label}
               </SelectItem>
             ))}
@@ -376,10 +588,7 @@ function MemberRow({ member, reload }) {
             <AlertDialogCancel className="rounded-none border-zinc-800 bg-transparent hover:bg-zinc-900">
               Отмена
             </AlertDialogCancel>
-            <AlertDialogAction
-              onClick={remove}
-              className="rounded-none bg-[#8A0303] hover:bg-[#A10A0A]"
-            >
+            <AlertDialogAction onClick={remove} className="rounded-none bg-[#8A0303] hover:bg-[#A10A0A]">
               Удалить
             </AlertDialogAction>
           </AlertDialogFooter>

@@ -38,9 +38,17 @@ import {
   Folder,
   FolderPlus,
   FileDown,
+  Copy,
+  ArrowUpNarrowWide,
+  ArrowDownWideNarrow,
 } from "lucide-react";
 import { toast } from "sonner";
 import api, { formatApiErrorDetail, API } from "@/lib/api";
+import TextFileEditor from "@/components/TextFileEditor";
+
+const TEXT_EDITABLE_EXT = new Set([
+  "txt", "md", "csv", "json", "xml", "html", "css", "js", "ts", "py", "yaml", "yml", "log",
+]);
 
 function toDayString(d) {
   const year = d.getFullYear();
@@ -96,6 +104,7 @@ export default function DrivePanel({ user }) {
   const [newCatName, setNewCatName] = useState("");
   const [newCatOpen, setNewCatOpen] = useState(false);
   const [previewFile, setPreviewFile] = useState(null);
+  const [textFile, setTextFile] = useState(null);
   const fileInput = useRef(null);
 
   const today = new Date();
@@ -482,7 +491,13 @@ export default function DrivePanel({ user }) {
                 user={user}
                 onDownload={() => downloadFile(f)}
                 onDelete={() => deleteFile(f.id)}
-                onPreview={() => setPreviewFile(f)}
+                onPreview={() => {
+                  if (TEXT_EDITABLE_EXT.has((f.ext || "").toLowerCase())) {
+                    setTextFile(f);
+                  } else {
+                    setPreviewFile(f);
+                  }
+                }}
               />
             ))}
           </div>
@@ -745,6 +760,13 @@ export default function DrivePanel({ user }) {
       </div>
 
       {/* Preview dialog */}
+      <TextFileEditor
+        file={textFile}
+        open={!!textFile}
+        onOpenChange={(v) => !v && setTextFile(null)}
+        canEdit={!!textFile && (user?.role === "admin" || user?.username === textFile?.uploaded_by)}
+      />
+
       <Dialog open={!!previewFile} onOpenChange={(v) => !v && setPreviewFile(null)}>
         <DialogContent className="bg-[#0a0a0a] border-zinc-800 rounded-none max-w-4xl">
           <DialogHeader>
@@ -959,6 +981,10 @@ function FileCard({ file, user, onDownload, onDelete, onPreview }) {
 }
 
 function SheetEditor({ sheet, setSheet }) {
+  const [findQ, setFindQ] = useState("");
+  const [replaceQ, setReplaceQ] = useState("");
+  const csvInputRef = useRef(null);
+
   const setCell = (r, c, v) => {
     const rows = sheet.rows.map((row) => [...row]);
     rows[r][c] = v;
@@ -988,88 +1014,326 @@ function SheetEditor({ sheet, setSheet }) {
     const rows = sheet.rows.map((r) => r.filter((_, i) => i !== idx));
     setSheet({ ...sheet, columns, rows });
   };
+  const duplicateRow = (idx) => {
+    const src = sheet.rows[idx] ?? [];
+    const rows = [...sheet.rows.slice(0, idx + 1), [...src], ...sheet.rows.slice(idx + 1)];
+    setSheet({ ...sheet, rows });
+  };
+  const clearAll = () => {
+    if (!window.confirm("Очистить все ячейки?")) return;
+    const rows = sheet.rows.map((r) => r.map(() => ""));
+    setSheet({ ...sheet, rows });
+  };
+  const sortByColumn = (idx, dir) => {
+    const rows = [...sheet.rows];
+    rows.sort((a, b) => {
+      const av = a[idx] ?? "";
+      const bv = b[idx] ?? "";
+      const na = parseFloat(String(av).replace(",", "."));
+      const nb = parseFloat(String(bv).replace(",", "."));
+      const bothNum = !Number.isNaN(na) && !Number.isNaN(nb) && av !== "" && bv !== "";
+      let cmp;
+      if (bothNum) cmp = na - nb;
+      else cmp = String(av).localeCompare(String(bv), "ru");
+      return dir === "asc" ? cmp : -cmp;
+    });
+    setSheet({ ...sheet, rows });
+    toast.success(`Отсортировано по «${sheet.columns[idx]}»`);
+  };
+  const doReplace = () => {
+    if (!findQ) return;
+    let count = 0;
+    const rows = sheet.rows.map((r) =>
+      r.map((c) => {
+        const s = String(c ?? "");
+        if (!s.includes(findQ)) return c;
+        count += (s.match(new RegExp(findQ.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "g")) || []).length;
+        return s.split(findQ).join(replaceQ);
+      }),
+    );
+    setSheet({ ...sheet, rows });
+    toast.success(`Заменено: ${count}`);
+  };
+  const importCsv = (file) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const raw = String(reader.result || "").replace(/^\uFEFF/, "");
+        const parsed = parseCSV(raw);
+        if (!parsed.length) return toast.error("Пустой CSV");
+        const cols = parsed[0].map((c) => String(c));
+        const rows = parsed.slice(1).map((r) => {
+          const out = Array(cols.length).fill("");
+          for (let i = 0; i < cols.length; i++) out[i] = r[i] != null ? String(r[i]) : "";
+          return out;
+        });
+        setSheet({ ...sheet, columns: cols, rows: rows.length ? rows : [Array(cols.length).fill("")] });
+        toast.success(`Импортировано: ${rows.length} строк`);
+      } catch (e) {
+        toast.error("Не удалось прочитать CSV");
+      }
+    };
+    reader.readAsText(file, "utf-8");
+  };
+
+  // Column sums (if numeric)
+  const colSums = sheet.columns.map((_, ci) => {
+    let sum = 0;
+    let any = false;
+    for (const r of sheet.rows) {
+      const v = parseFloat(String(r[ci] ?? "").replace(",", "."));
+      if (!Number.isNaN(v)) {
+        sum += v;
+        any = true;
+      }
+    }
+    return any ? sum : null;
+  });
 
   return (
-    <div data-testid="drive-sheet-editor" className="max-h-[60vh] overflow-auto">
-      <table className="w-full border border-zinc-800">
-        <thead className="bg-black sticky top-0 z-10">
-          <tr>
-            <th className="w-10 border border-zinc-800 p-1 text-[10px] uppercase tracking-[0.3em] text-zinc-600">
-              #
-            </th>
-            {sheet.columns.map((col, ci) => (
-              <th key={ci} className="border border-zinc-800 p-1 min-w-[120px]">
-                <div className="flex items-center gap-1">
-                  <Input
-                    value={col}
-                    onChange={(e) => setColumn(ci, e.target.value)}
-                    data-testid={`drive-col-${ci}`}
-                    className="rounded-none bg-black border-zinc-900 h-8 text-[11px] uppercase tracking-wider text-zinc-200"
-                  />
-                  <button
-                    onClick={() => removeColumn(ci)}
-                    data-testid={`drive-col-remove-${ci}`}
-                    className="text-zinc-600 hover:text-[#ff9b9b] p-1"
-                    title="Удалить столбец"
-                  >
-                    <X className="w-3 h-3" />
-                  </button>
-                </div>
+    <div data-testid="drive-sheet-editor" className="flex flex-col gap-3">
+      {/* Toolbar */}
+      <div className="flex items-center gap-2 flex-wrap border border-zinc-900 bg-black/40 p-3">
+        <input
+          ref={csvInputRef}
+          type="file"
+          accept=".csv,text/csv"
+          hidden
+          data-testid="drive-sheet-import-csv-input"
+          onChange={(e) => {
+            const f = (e.target.files || [])[0];
+            if (f) importCsv(f);
+            if (csvInputRef.current) csvInputRef.current.value = "";
+          }}
+        />
+        <Button
+          onClick={() => csvInputRef.current?.click()}
+          variant="outline"
+          size="sm"
+          data-testid="drive-sheet-import-csv-btn"
+          className="rounded-none border-zinc-800 bg-transparent hover:bg-zinc-900 hover:text-white text-zinc-300 h-9 px-3 text-[11px] uppercase tracking-[0.25em]"
+        >
+          Импорт CSV
+        </Button>
+        <Button
+          onClick={clearAll}
+          variant="outline"
+          size="sm"
+          data-testid="drive-sheet-clear-btn"
+          className="rounded-none border-zinc-800 bg-transparent hover:bg-[#1a0404] hover:text-[#ff9b9b] text-zinc-400 h-9 px-3 text-[11px] uppercase tracking-[0.25em]"
+        >
+          Очистить
+        </Button>
+        <div className="flex-1" />
+        <div className="flex items-center gap-2 flex-wrap">
+          <Input
+            value={findQ}
+            onChange={(e) => setFindQ(e.target.value)}
+            placeholder="Найти..."
+            data-testid="drive-sheet-find"
+            className="rounded-none bg-black border-zinc-800 text-zinc-100 h-9 w-40"
+          />
+          <Input
+            value={replaceQ}
+            onChange={(e) => setReplaceQ(e.target.value)}
+            placeholder="Заменить на..."
+            data-testid="drive-sheet-replace"
+            className="rounded-none bg-black border-zinc-800 text-zinc-100 h-9 w-40"
+          />
+          <Button
+            onClick={doReplace}
+            size="sm"
+            disabled={!findQ}
+            data-testid="drive-sheet-replace-btn"
+            className="rounded-none bg-zinc-800 hover:bg-zinc-700 text-white h-9 px-3 text-[11px] uppercase tracking-[0.25em] disabled:opacity-50"
+          >
+            Заменить все
+          </Button>
+        </div>
+      </div>
+
+      <div className="max-h-[55vh] overflow-auto">
+        <table className="w-full border border-zinc-800">
+          <thead className="bg-black sticky top-0 z-10">
+            <tr>
+              <th className="w-10 border border-zinc-800 p-1 text-[10px] uppercase tracking-[0.3em] text-zinc-600">
+                #
               </th>
+              {sheet.columns.map((col, ci) => (
+                <th key={ci} className="border border-zinc-800 p-1 min-w-[140px]">
+                  <div className="flex items-center gap-1">
+                    <Input
+                      value={col}
+                      onChange={(e) => setColumn(ci, e.target.value)}
+                      data-testid={`drive-col-${ci}`}
+                      className="rounded-none bg-black border-zinc-900 h-8 text-[11px] uppercase tracking-wider text-zinc-200"
+                    />
+                    <button
+                      onClick={() => sortByColumn(ci, "asc")}
+                      data-testid={`drive-col-sort-asc-${ci}`}
+                      className="text-zinc-500 hover:text-[#8A0303] p-1"
+                      title="По возрастанию"
+                    >
+                      <ArrowUpNarrowWide className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      onClick={() => sortByColumn(ci, "desc")}
+                      data-testid={`drive-col-sort-desc-${ci}`}
+                      className="text-zinc-500 hover:text-[#8A0303] p-1"
+                      title="По убыванию"
+                    >
+                      <ArrowDownWideNarrow className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      onClick={() => removeColumn(ci)}
+                      data-testid={`drive-col-remove-${ci}`}
+                      className="text-zinc-600 hover:text-[#ff9b9b] p-1"
+                      title="Удалить столбец"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                </th>
+              ))}
+              <th className="w-10 border border-zinc-800 p-1">
+                <button
+                  onClick={addColumn}
+                  data-testid="drive-add-col"
+                  className="w-full text-zinc-500 hover:text-white"
+                  title="Добавить столбец"
+                >
+                  <Plus className="w-4 h-4 mx-auto" />
+                </button>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {sheet.rows.map((row, ri) => (
+              <tr key={ri}>
+                <td className="border border-zinc-800 p-1 text-center text-[10px] text-zinc-600">
+                  {ri + 1}
+                </td>
+                {sheet.columns.map((_, ci) => (
+                  <td key={ci} className="border border-zinc-800 p-0">
+                    <input
+                      value={row[ci] ?? ""}
+                      onChange={(e) => setCell(ri, ci, e.target.value)}
+                      data-testid={`drive-cell-${ri}-${ci}`}
+                      className="w-full h-9 px-2 bg-transparent border-none focus:outline-none focus:bg-black/60 text-zinc-100 text-sm"
+                    />
+                  </td>
+                ))}
+                <td className="border border-zinc-800 p-1 text-center">
+                  <div className="flex items-center gap-1 justify-center">
+                    <button
+                      onClick={() => duplicateRow(ri)}
+                      data-testid={`drive-row-dup-${ri}`}
+                      className="text-zinc-500 hover:text-[#8A0303] p-1"
+                      title="Дублировать строку"
+                    >
+                      <Copy className="w-3 h-3" />
+                    </button>
+                    <button
+                      onClick={() => removeRow(ri)}
+                      data-testid={`drive-row-remove-${ri}`}
+                      className="text-zinc-600 hover:text-[#ff9b9b] p-1"
+                      title="Удалить строку"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                </td>
+              </tr>
             ))}
-            <th className="w-10 border border-zinc-800 p-1">
-              <button
-                onClick={addColumn}
-                data-testid="drive-add-col"
-                className="w-full text-zinc-500 hover:text-white"
-                title="Добавить столбец"
-              >
-                <Plus className="w-4 h-4 mx-auto" />
-              </button>
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {sheet.rows.map((row, ri) => (
-            <tr key={ri}>
-              <td className="border border-zinc-800 p-1 text-center text-[10px] text-zinc-600">
-                {ri + 1}
+            <tr>
+              <td className="border border-zinc-800 p-1 text-center text-[10px] uppercase tracking-[0.3em] text-zinc-600">
+                Σ
               </td>
-              {sheet.columns.map((_, ci) => (
-                <td key={ci} className="border border-zinc-800 p-0">
-                  <input
-                    value={row[ci] ?? ""}
-                    onChange={(e) => setCell(ri, ci, e.target.value)}
-                    data-testid={`drive-cell-${ri}-${ci}`}
-                    className="w-full h-9 px-2 bg-transparent border-none focus:outline-none focus:bg-black/60 text-zinc-100 text-sm"
-                  />
+              {colSums.map((s, ci) => (
+                <td
+                  key={ci}
+                  data-testid={`drive-col-sum-${ci}`}
+                  className="border border-zinc-800 p-2 text-right text-xs text-[#c98a8a] font-mono"
+                >
+                  {s == null ? "—" : Number.isInteger(s) ? s.toString() : s.toFixed(2)}
                 </td>
               ))}
-              <td className="border border-zinc-800 p-1 text-center">
+              <td className="border border-zinc-800" />
+            </tr>
+            <tr>
+              <td colSpan={sheet.columns.length + 2} className="border border-zinc-800 p-1">
                 <button
-                  onClick={() => removeRow(ri)}
-                  data-testid={`drive-row-remove-${ri}`}
-                  className="text-zinc-600 hover:text-[#ff9b9b] p-1"
-                  title="Удалить строку"
+                  onClick={addRow}
+                  data-testid="drive-add-row"
+                  className="w-full h-8 text-[11px] uppercase tracking-[0.3em] text-zinc-500 hover:text-white hover:bg-zinc-900/60 flex items-center justify-center gap-1"
                 >
-                  <X className="w-3 h-3" />
+                  <Plus className="w-3 h-3" /> Добавить строку
                 </button>
               </td>
             </tr>
-          ))}
-          <tr>
-            <td colSpan={sheet.columns.length + 2} className="border border-zinc-800 p-1">
-              <button
-                onClick={addRow}
-                data-testid="drive-add-row"
-                className="w-full h-8 text-[11px] uppercase tracking-[0.3em] text-zinc-500 hover:text-white hover:bg-zinc-900/60 flex items-center justify-center gap-1"
-              >
-                <Plus className="w-3 h-3" /> Добавить строку
-              </button>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+          </tbody>
+        </table>
+      </div>
+      <div className="text-[10px] uppercase tracking-[0.3em] text-zinc-600">
+        Строк: {sheet.rows.length} · Столбцов: {sheet.columns.length}
+      </div>
     </div>
   );
+}
+
+// Simple RFC 4180 CSV parser
+function parseCSV(text) {
+  const rows = [];
+  let row = [];
+  let cell = "";
+  let inQuotes = false;
+  let i = 0;
+  while (i < text.length) {
+    const ch = text[i];
+    if (inQuotes) {
+      if (ch === '"') {
+        if (text[i + 1] === '"') {
+          cell += '"';
+          i += 2;
+          continue;
+        }
+        inQuotes = false;
+        i++;
+        continue;
+      }
+      cell += ch;
+      i++;
+      continue;
+    }
+    if (ch === '"') {
+      inQuotes = true;
+      i++;
+      continue;
+    }
+    if (ch === ",") {
+      row.push(cell);
+      cell = "";
+      i++;
+      continue;
+    }
+    if (ch === "\r") {
+      i++;
+      continue;
+    }
+    if (ch === "\n") {
+      row.push(cell);
+      rows.push(row);
+      row = [];
+      cell = "";
+      i++;
+      continue;
+    }
+    cell += ch;
+    i++;
+  }
+  if (cell.length || row.length) {
+    row.push(cell);
+    rows.push(row);
+  }
+  return rows;
 }

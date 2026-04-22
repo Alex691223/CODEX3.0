@@ -105,10 +105,9 @@ export function LoreSection() {
             <div className="text-[10px] uppercase tracking-[0.4em] text-zinc-500">
               {s.territory_label || DEFAULTS.territory_label}
             </div>
-            <div className="font-display text-2xl md:text-3xl mt-3 text-zinc-100">
+            <div className="font-display text-xl md:text-2xl mt-3 text-zinc-100 whitespace-pre-wrap leading-snug">
               {s.territory_desc || DEFAULTS.territory_desc}
             </div>
-            <div className="mt-2 text-zinc-500 text-sm">Под защитой семьи</div>
           </div>
           <div className="md:col-span-4 border border-zinc-900 bg-[#0a0a0a] p-7" data-testid="lore-stat-founded">
             <div className="text-[10px] uppercase tracking-[0.4em] text-zinc-500">Основано</div>

@@ -1,20 +1,33 @@
 import { useEffect, useState } from "react";
-import { Crown, Star, User } from "lucide-react";
+import { Crown, Star, User, Shield, Sword, Flag } from "lucide-react";
 import api from "@/lib/api";
 
 const TEXTURE =
   "https://static.prod-images.emergentagent.com/jobs/535564d9-799e-4642-b186-394f0ab11df3/images/2a0662eb40492495727e984b6a794f8d1d6d27e33a055eebe6cea541a7a084a7.png";
 
+// pick an icon per rank position (first — Crown, second — Shield, then Star/Sword/Flag/User)
+const ICON_CYCLE = [Crown, Shield, Star, Sword, Flag, User];
+
 export function RosterSection() {
   const [members, setMembers] = useState([]);
+  const [ranks, setRanks] = useState([]);
 
   useEffect(() => {
-    api.get("/members").then(({ data }) => setMembers(data || [])).catch(() => {});
+    Promise.all([api.get("/members"), api.get("/ranks")])
+      .then(([m, r]) => {
+        setMembers(m.data || []);
+        setRanks((r.data || []).slice().sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0)));
+      })
+      .catch(() => {});
   }, []);
 
-  const owners = members.filter((m) => m.rank === "owner");
-  const advisors = members.filter((m) => m.rank === "advisor");
-  const important = members.filter((m) => m.rank === "important");
+  const groups = ranks.map((rank, i) => ({
+    rank,
+    icon: ICON_CYCLE[i % ICON_CYCLE.length],
+    members: members.filter((m) => m.rank_id === rank.id),
+  }));
+
+  const hasAny = groups.some((g) => g.members.length > 0);
 
   return (
     <section
@@ -46,59 +59,47 @@ export function RosterSection() {
           </p>
         </div>
 
-        {owners.length > 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
-            {owners.map((m, i) => (
-              <MemberCard
-                key={m.id}
-                member={{ ...m, role: "Глава семьи", icon: Crown, tag: "Don" }}
-                testId={`roster-owner-${i}`}
-                big
-              />
-            ))}
-          </div>
-        )}
-
-        {advisors.length > 0 && (
-          <div className="mb-10">
-            <div className="text-[10px] uppercase tracking-[0.4em] text-zinc-500 mb-4">
-              Советники
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {advisors.map((m, i) => (
-                <MemberCard
-                  key={m.id}
-                  member={{ ...m, role: "Советник", icon: Star }}
-                  testId={`roster-advisor-${i}`}
-                />
-              ))}
-            </div>
-          </div>
-        )}
-
-        {important.length > 0 && (
-          <div>
-            <div className="text-[10px] uppercase tracking-[0.4em] text-zinc-500 mb-4">
-              Важные люди
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {important.map((m, i) => (
-                <MemberCard
-                  key={m.id}
-                  member={{ ...m, role: "Важный человек", icon: User }}
-                  testId={`roster-important-${i}`}
-                  compact
-                />
-              ))}
-            </div>
-          </div>
-        )}
-
-        {members.length === 0 && (
+        {!hasAny && (
           <div className="border border-zinc-900 bg-[#0a0a0a] p-10 text-center text-zinc-500">
             Состав семьи скоро появится.
           </div>
         )}
+
+        {groups.map((group, gi) => {
+          if (group.members.length === 0) return null;
+          const big = gi === 0;
+          const compact = gi >= 2;
+          const wrapperCls = big
+            ? "grid grid-cols-1 md:grid-cols-2 gap-6"
+            : compact
+              ? "grid grid-cols-1 md:grid-cols-3 gap-4"
+              : "grid grid-cols-1 md:grid-cols-2 gap-4";
+          return (
+            <div key={group.rank.id} className="mb-10">
+              {!big && (
+                <div className="text-[10px] uppercase tracking-[0.4em] text-zinc-500 mb-4">
+                  {group.rank.label}
+                </div>
+              )}
+              <div className={wrapperCls}>
+                {group.members.map((m, i) => (
+                  <MemberCard
+                    key={m.id}
+                    member={{
+                      ...m,
+                      role: group.rank.label,
+                      icon: group.icon,
+                      tag: big ? "Don" : null,
+                    }}
+                    testId={`roster-${group.rank.key || group.rank.id}-${i}`}
+                    big={big}
+                    compact={compact}
+                  />
+                ))}
+              </div>
+            </div>
+          );
+        })}
       </div>
     </section>
   );
