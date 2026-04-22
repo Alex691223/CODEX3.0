@@ -1,0 +1,127 @@
+<analysis>**original_problem_statement**: Create a family website for GTA 5RP (server redwood) named C O D E X. Need an admin panel with login alex and password 123. The site should have family description, owners, and other important people. Good UI, place a photo of the user. Admins can appoint moderators who accept applications. The site allows writing an application via a form and links to the Discord channel. Fill unknown info with unknown.
+
+**User's preferred language**: INSTRUCT NEXT AGENT TO RESPOND IN **Russian** ONLY.
+
+**what currently exists?** 
+A fully functional, dark-gothic themed React + FastAPI + MongoDB MVP application. It includes a hidden admin login ( hotkey), application management, custom ranks hierarchy, analytics, drive/file management (via Object Storage), settings, audit log, and brute-force protection. The user explicitly requested to **migrate the entire stack to run on cPanel Shared Hosting** without changing the frontend or losing features, which means transitioning from MongoDB to MySQL and Object Storage to Local File System.
+
+**Last working item**:
+- Last item agent was working: Building a parallel cPanel-compatible version in . This involves rewriting the backend to use SQLAlchemy (MySQL) instead of Motor (MongoDB) and local file storage instead of Emergent Object Storage, alongside creating a  setup.
+- Status: IN PROGRESS
+- Agent Testing Done: N
+- Which testing method agent to use? backend testing agent (Once the SQLAlchemy backend is fully written, verify all endpoints work as expected).
+- User Testing Done: N
+
+**All Pending/In progress Issue list**:
+  Issue 1: Fix cPanel backend file creation and complete MySQL migration.
+     - Attempted fixes: Agent invoked  for , but a subsequent  check returned . The file was likely not created or path was incorrect.
+     - Next debug checklist: Check if  exists. Write the complete FastAPI + SQLAlchemy code into . Ensure DB models mirror the NoSQL documents (users, members, applications, ranks, files, sheets, audit, settings).
+     - Why fix this issue and what will be achieved with the fix? The user strictly requested the site to be compatible with cPanel shared hosting without losing features.
+     - Status: IN PROGRESS
+     - Is recurring issue? N
+     - Should Test frontend/backend/both after fix? Both
+     - Blocked on other issue: None
+
+**In progress Task List**:
+  Task 1: Complete cPanel (Shared Hosting) Migration
+     - Where to resume: Write the full FastAPI code using SQLAlchemy (MySQL) for . Implement local file storage for the Drive feature (saving to something like ). Ensure all features (auth, ranks, members, applications, drive, audit, analytics, brute force) work exactly as the MongoDB version so the frontend API calls do not break.
+     - What will be achieved with this? User can deploy to cPanel shared hosting.
+     - Status: IN PROGRESS
+     - Should Test frontend/backend/both after fix? Both
+     - Blocked on something: None
+
+**Upcoming and Future Tasks**:
+  Upcoming Tasks:
+  - Create the frontend build script or instructions on how to build the React app and place it in the  folder for cPanel.
+  - Test the newly written MySQL backend with curl or python scripts to ensure 100% API contract parity with the old MongoDB backend.
+
+**Completed work in this session**
+- Dark gothic UI setup (Hero, Lore, Roster, Form, Footer) (DONE)
+- Admin dashboard with hidden  hotkey login (DONE)
+- Auth (JWT), Brute-force protection, Security Headers (DONE)
+- Drive Panel (Files, Sheets) using Emergent Object Storage (DONE)
+- Settings Panel for Discord link and text (DONE)
+- Ranks/Hierarchy customisation & Audit Log Panel (DONE)
+- Analytics Panel (DONE)
+- Namecheap VPS deployment files (Docker, Nginx) (DONE)
+
+**Earlier issues found/mentioned but not fixed**
+None. Prior to the cPanel migration request, the app was fully functional and passed 78/78 backend tests.
+
+**Known issue recurrence from previous fork**
+None.
+
+**Code Architecture**
+
+
+**Key Technical Concepts**
+- Frontend: React, Tailwind, Shadcn UI, Framer Motion
+- Backend (Original): FastAPI, MongoDB (Motor), PyJWT, slowapi, Emergent Object Storage
+- Backend (cPanel - WIP): FastAPI, SQLAlchemy (MySQL), PyJWT, slowapi, Local file storage
+- Auth: JWT in cookies
+
+**key DB schema**
+Original MongoDB Collections (Must be converted to MySQL Tables):
+- users: id, username, password_hash, role
+- members: id, name, discord, tenure, rank, order
+- applications: id, in_game_name, real_name, age, playtime, timezone, previous_fams, invite_source, activity, status, created_at
+- ranks: id, key, label, sort_order
+- drive_files: id, filename, ext, content_type, size, content, uploader_id, is_deleted
+- drive_sheets: id, title, data
+- audit_logs: id, actor, action, target, meta, at
+- settings: id, discord_url, territory_desc
+
+**changes in tech stack**
+- MIGRATION: User requested to move from MongoDB to MySQL (cPanel support).
+- MIGRATION: User requested to move from Emergent Object Storage to local file storage (cPanel support).
+
+**All files of reference**
+- : The reference FastAPI + MongoDB code. Keep this intact as a reference to write the new cPanel backend.
+- : The target file for the new FastAPI + MySQL code.
+- : Contains the  hotkey logic for admin login.
+
+**Areas that need refactoring**
+ needs to be completely written using SQLAlchemy.
+
+**key api endpoints**
+Prefix: 
+, , 
+ (GET, POST, PATCH, DELETE)
+, , , , 
+, , 
+
+**Critical Info for New Agent**
+- The user was explicitly warned about the drawbacks of cPanel, but firmly replied: *переделай все на cpanel без потери функций и без изменений сайта*. You MUST build the cPanel version.
+- Create the cPanel version in the  directory so you don't break the working VPS version in .
+- The new  must have **exact API response parity** with the old backend so the frontend does not need to be rewritten.
+- For Drive/Files, stop using the Emergent Integration Object Storage. Implement local disk saves (e.g., ) and serve files directly or via endpoints.
+
+**documents and test reports created in this job**
+- 
+- 
+- 
+- 
+
+**Last 10 User Messages and any pending HUMAN messages**
+- *User*: как мне все это залить на namecheap хостинг. и всего ли хватает для этого? -> Agent provided VPS instructions. (DONE)
+- *User*: а ты можешь переделать сайт под cpanel? -> Agent explained drawbacks and offered alternatives. (DONE)
+- *User*: переделай все на cpanel без потери функций и без изменений сайта -> Agent started creating cPanel files but hit an OS Error on linting. (IN PROGRESS)
+
+**Project Health Check:**
+- Original VPS App (MongoDB): Healthy
+- cPanel App (MySQL): Broken (Missing/Empty files)
+
+**3rd Party Integrations**
+- Emergent Integrations Object Storage — requires Emergent LLM Key (Used in original backend. Must be REMOVED for cPanel backend).
+
+**Testing status**
+- Testing agent used after significant changes: YES (for the MongoDB version)
+- Troubleshoot agent used after agent stuck in loop: NO
+- Test files created: None
+- Known regressions: cPanel backend creation failed.
+
+**Credentials to test flow:**
+Check  (Username: alex)
+
+**What agent forgot to execute**
+The agent attempted to parallelize the creation of the cPanel backend, but  for  did not execute successfully, resulting in an  error during python linting. Ensure the file and its parent directories are properly created.</analysis>
