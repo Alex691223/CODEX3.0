@@ -1,10 +1,16 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Dialog,
   DialogContent,
@@ -25,20 +31,23 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { LogOut, Plus, Trash2, Check, X, Mail } from "lucide-react";
+import { Label } from "@/components/ui/label";
+import { LogOut, Plus, Trash2, Check, X, Mail, Search, KeyRound } from "lucide-react";
 import { toast } from "sonner";
 import api, { formatApiErrorDetail } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import DrivePanel from "@/components/DrivePanel";
 import AnalyticsPanel from "@/components/AnalyticsPanel";
+import SettingsPanel from "@/components/SettingsPanel";
+import ChangePasswordForm from "@/components/ChangePasswordForm";
 
 export default function AdminDashboard() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [applications, setApplications] = useState([]);
   const [moderators, setModerators] = useState([]);
-  const [discordUrl, setDiscordUrl] = useState("");
-  const [savingSettings, setSavingSettings] = useState(false);
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
 
   const isAdmin = user?.role === "admin";
 
@@ -59,22 +68,14 @@ export default function AdminDashboard() {
     } catch (_) {}
   }, [isAdmin]);
 
-  const loadSettings = useCallback(async () => {
-    try {
-      const { data } = await api.get("/settings");
-      setDiscordUrl(data?.discord_url || "");
-    } catch (_) {}
-  }, []);
-
   useEffect(() => {
     loadApps();
     loadMods();
-    loadSettings();
-  }, [loadApps, loadMods, loadSettings]);
+  }, [loadApps, loadMods]);
 
   const doLogout = () => {
     logout();
-    navigate("/admin");
+    navigate("/");
   };
 
   const updateAppStatus = async (id, status) => {
@@ -97,17 +98,19 @@ export default function AdminDashboard() {
     }
   };
 
-  const saveSettings = async () => {
-    setSavingSettings(true);
-    try {
-      await api.put("/settings", { discord_url: discordUrl });
-      toast.success("Настройки сохранены");
-    } catch (err) {
-      toast.error(formatApiErrorDetail(err?.response?.data?.detail) || "Ошибка сохранения");
-    } finally {
-      setSavingSettings(false);
-    }
-  };
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return applications.filter((a) => {
+      if (statusFilter !== "all" && a.status !== statusFilter) return false;
+      if (!q) return true;
+      return (
+        (a.nickname || "").toLowerCase().includes(q) ||
+        (a.real_name || "").toLowerCase().includes(q) ||
+        (a.invited_by || "").toLowerCase().includes(q) ||
+        (a.timezone_info || "").toLowerCase().includes(q)
+      );
+    });
+  }, [applications, search, statusFilter]);
 
   const pending = applications.filter((a) => a.status === "pending");
   const approved = applications.filter((a) => a.status === "approved");
@@ -155,50 +158,71 @@ export default function AdminDashboard() {
             className="bg-transparent border border-zinc-900 rounded-none p-0 h-auto gap-0 flex-wrap"
             data-testid="admin-tabs"
           >
-            <TabsTrigger
-              value="applications"
-              data-testid="tab-applications"
-              className="rounded-none px-6 py-3 text-[11px] uppercase tracking-[0.3em] data-[state=active]:bg-[#8A0303] data-[state=active]:text-white"
-            >
+            <TabTrigger value="applications" testId="tab-applications">
               Заявки
-            </TabsTrigger>
-            <TabsTrigger
-              value="drive"
-              data-testid="tab-drive"
-              className="rounded-none px-6 py-3 text-[11px] uppercase tracking-[0.3em] data-[state=active]:bg-[#8A0303] data-[state=active]:text-white"
-            >
+            </TabTrigger>
+            <TabTrigger value="drive" testId="tab-drive">
               Диск
-            </TabsTrigger>
-            <TabsTrigger
-              value="analytics"
-              data-testid="tab-analytics"
-              className="rounded-none px-6 py-3 text-[11px] uppercase tracking-[0.3em] data-[state=active]:bg-[#8A0303] data-[state=active]:text-white"
-            >
+            </TabTrigger>
+            <TabTrigger value="analytics" testId="tab-analytics">
               Аналитика
-            </TabsTrigger>
+            </TabTrigger>
             {isAdmin && (
-              <TabsTrigger
-                value="moderators"
-                data-testid="tab-moderators"
-                className="rounded-none px-6 py-3 text-[11px] uppercase tracking-[0.3em] data-[state=active]:bg-[#8A0303] data-[state=active]:text-white"
-              >
+              <TabTrigger value="moderators" testId="tab-moderators">
                 Модераторы
-              </TabsTrigger>
+              </TabTrigger>
             )}
             {isAdmin && (
-              <TabsTrigger
-                value="settings"
-                data-testid="tab-settings"
-                className="rounded-none px-6 py-3 text-[11px] uppercase tracking-[0.3em] data-[state=active]:bg-[#8A0303] data-[state=active]:text-white"
-              >
+              <TabTrigger value="settings" testId="tab-settings">
                 Настройки
-              </TabsTrigger>
+              </TabTrigger>
             )}
+            <TabTrigger value="profile" testId="tab-profile">
+              Профиль
+            </TabTrigger>
           </TabsList>
 
           <TabsContent value="applications" className="mt-8" data-testid="applications-panel">
+            <div className="flex flex-wrap gap-3 mb-5">
+              <div className="relative flex-1 min-w-[220px]">
+                <Search className="w-4 h-4 text-zinc-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                <Input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Поиск по нику, имени, кто пригласил..."
+                  data-testid="apps-search-input"
+                  className="rounded-none bg-black border-zinc-800 focus-visible:ring-1 focus-visible:ring-[#8A0303] focus-visible:border-[#8A0303] text-zinc-100 h-10 pl-10"
+                />
+              </div>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger
+                  data-testid="apps-status-filter"
+                  className="rounded-none bg-black border-zinc-800 text-zinc-100 h-10 w-48"
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-[#0a0a0a] border-zinc-800 text-zinc-100 rounded-none">
+                  <SelectItem value="all" className="rounded-none">
+                    Все статусы
+                  </SelectItem>
+                  <SelectItem value="pending" className="rounded-none">
+                    В ожидании
+                  </SelectItem>
+                  <SelectItem value="approved" className="rounded-none">
+                    Одобрено
+                  </SelectItem>
+                  <SelectItem value="rejected" className="rounded-none">
+                    Отклонено
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+              <div className="text-[11px] uppercase tracking-[0.3em] text-zinc-600 flex items-center">
+                Показано: {filtered.length} / {applications.length}
+              </div>
+            </div>
+
             <ApplicationsList
-              apps={applications}
+              apps={filtered}
               isAdmin={isAdmin}
               onUpdate={updateAppStatus}
               onDelete={deleteApp}
@@ -220,36 +244,29 @@ export default function AdminDashboard() {
           )}
 
           {isAdmin && (
-            <TabsContent value="settings" className="mt-8" data-testid="settings-panel">
-              <div className="border border-zinc-900 bg-[#0a0a0a] p-8 max-w-xl">
-                <h2 className="font-display text-xl uppercase mb-2">Ссылка Discord</h2>
-                <p className="text-zinc-500 text-sm mb-6">
-                  Эта ссылка будет показана на главной странице в кнопке «Присоединиться».
-                </p>
-                <Label className="text-[10px] uppercase tracking-[0.35em] text-zinc-500">
-                  URL приглашения
-                </Label>
-                <Input
-                  value={discordUrl}
-                  onChange={(e) => setDiscordUrl(e.target.value)}
-                  placeholder="https://discord.gg/..."
-                  data-testid="settings-discord-url"
-                  className="rounded-none bg-black border-zinc-800 focus-visible:ring-1 focus-visible:ring-[#8A0303] focus-visible:border-[#8A0303] text-zinc-100 h-11 mt-2"
-                />
-                <Button
-                  onClick={saveSettings}
-                  disabled={savingSettings}
-                  data-testid="settings-save-btn"
-                  className="mt-5 rounded-none bg-[#8A0303] hover:bg-[#A10A0A] text-white h-11 px-6 uppercase tracking-[0.25em] text-xs font-semibold"
-                >
-                  {savingSettings ? "Сохранение..." : "Сохранить"}
-                </Button>
-              </div>
+            <TabsContent value="settings" className="mt-8">
+              <SettingsPanel />
             </TabsContent>
           )}
+
+          <TabsContent value="profile" className="mt-8" data-testid="profile-panel">
+            <ChangePasswordForm />
+          </TabsContent>
         </Tabs>
       </main>
     </div>
+  );
+}
+
+function TabTrigger({ value, testId, children }) {
+  return (
+    <TabsTrigger
+      value={value}
+      data-testid={testId}
+      className="rounded-none px-6 py-3 text-[11px] uppercase tracking-[0.3em] data-[state=active]:bg-[#8A0303] data-[state=active]:text-white"
+    >
+      {children}
+    </TabsTrigger>
   );
 }
 
@@ -287,7 +304,7 @@ function ApplicationsList({ apps, isAdmin, onUpdate, onDelete }) {
         className="border border-zinc-900 bg-[#0a0a0a] p-12 text-center text-zinc-500"
       >
         <Mail className="w-6 h-6 mx-auto mb-3 text-zinc-700" />
-        Заявок пока нет
+        Заявок по фильтрам не найдено
       </div>
     );
   }
@@ -451,6 +468,10 @@ function ModeratorsPanel({ mods, reload }) {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
+  const [resetTarget, setResetTarget] = useState(null);
+  const [resetPw, setResetPw] = useState("");
+  const [resetLoading, setResetLoading] = useState(false);
+
   const create = async () => {
     setLoading(true);
     try {
@@ -477,13 +498,31 @@ function ModeratorsPanel({ mods, reload }) {
     }
   };
 
+  const resetPassword = async () => {
+    if (resetPw.length < 4) return toast.error("Пароль минимум 4 символа");
+    setResetLoading(true);
+    try {
+      await api.post(`/moderators/${resetTarget.id}/reset-password`, {
+        current_password: "x",
+        new_password: resetPw,
+      });
+      toast.success("Пароль сброшен");
+      setResetTarget(null);
+      setResetPw("");
+    } catch (err) {
+      toast.error(formatApiErrorDetail(err?.response?.data?.detail) || "Ошибка");
+    } finally {
+      setResetLoading(false);
+    }
+  };
+
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
           <h2 className="font-display text-xl uppercase">Модераторы</h2>
           <p className="text-zinc-500 text-sm mt-1">
-            Модераторы обрабатывают заявки на вступление.
+            Добавляйте, удаляйте и сбрасывайте пароли модераторов.
           </p>
         </div>
         <Dialog open={open} onOpenChange={setOpen}>
@@ -518,7 +557,7 @@ function ModeratorsPanel({ mods, reload }) {
               </div>
               <div>
                 <Label className="text-[10px] uppercase tracking-[0.35em] text-zinc-500">
-                  Пароль
+                  Пароль (мин. 4 символа)
                 </Label>
                 <Input
                   type="password"
@@ -532,7 +571,7 @@ function ModeratorsPanel({ mods, reload }) {
             <DialogFooter className="mt-6">
               <Button
                 onClick={create}
-                disabled={loading || !username || password.length < 3}
+                disabled={loading || !username || password.length < 4}
                 data-testid="mod-create-btn"
                 className="rounded-none bg-[#8A0303] hover:bg-[#A10A0A] text-white h-11 px-6 uppercase tracking-[0.25em] text-[11px] font-semibold disabled:opacity-50"
               >
@@ -556,7 +595,7 @@ function ModeratorsPanel({ mods, reload }) {
             <div
               key={m.id}
               data-testid={`mod-row-${m.id}`}
-              className="border border-zinc-900 bg-[#0a0a0a] p-5 flex items-center justify-between"
+              className="border border-zinc-900 bg-[#0a0a0a] p-5 flex items-center justify-between flex-wrap gap-3"
             >
               <div>
                 <div className="font-display uppercase tracking-wider text-zinc-100">
@@ -566,41 +605,91 @@ function ModeratorsPanel({ mods, reload }) {
                   Добавлен: {m.created_at ? new Date(m.created_at).toLocaleString("ru-RU") : "—"}
                 </div>
               </div>
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    data-testid={`mod-delete-${m.id}`}
-                    className="rounded-none border-zinc-800 bg-transparent hover:bg-[#1a0404] hover:text-[#ff9b9b] text-zinc-500 h-9 px-3"
-                  >
-                    <Trash2 className="w-3.5 h-3.5 mr-2" /> Удалить
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent className="bg-[#0a0a0a] border-zinc-800 rounded-none">
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Удалить модератора?</AlertDialogTitle>
-                    <AlertDialogDescription className="text-zinc-400">
-                      {m.username} потеряет доступ к панели.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel className="rounded-none border-zinc-800 bg-transparent hover:bg-zinc-900">
-                      Отмена
-                    </AlertDialogCancel>
-                    <AlertDialogAction
-                      onClick={() => remove(m.id)}
-                      className="rounded-none bg-[#8A0303] hover:bg-[#A10A0A]"
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setResetTarget(m);
+                    setResetPw("");
+                  }}
+                  data-testid={`mod-reset-${m.id}`}
+                  className="rounded-none border-zinc-800 bg-transparent hover:bg-zinc-900 hover:text-white text-zinc-300 h-9 px-3 text-[11px] uppercase tracking-[0.25em]"
+                >
+                  <KeyRound className="w-3.5 h-3.5 mr-2" /> Сбросить пароль
+                </Button>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      data-testid={`mod-delete-${m.id}`}
+                      className="rounded-none border-zinc-800 bg-transparent hover:bg-[#1a0404] hover:text-[#ff9b9b] text-zinc-500 h-9 px-3"
                     >
-                      Удалить
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
+                      <Trash2 className="w-3.5 h-3.5 mr-2" /> Удалить
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent className="bg-[#0a0a0a] border-zinc-800 rounded-none">
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Удалить модератора?</AlertDialogTitle>
+                      <AlertDialogDescription className="text-zinc-400">
+                        {m.username} потеряет доступ к панели.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel className="rounded-none border-zinc-800 bg-transparent hover:bg-zinc-900">
+                        Отмена
+                      </AlertDialogCancel>
+                      <AlertDialogAction
+                        onClick={() => remove(m.id)}
+                        className="rounded-none bg-[#8A0303] hover:bg-[#A10A0A]"
+                      >
+                        Удалить
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </div>
             </div>
           ))}
         </div>
       )}
+
+      <Dialog open={!!resetTarget} onOpenChange={(v) => !v && setResetTarget(null)}>
+        <DialogContent className="bg-[#0a0a0a] border-zinc-800 rounded-none">
+          <DialogHeader>
+            <DialogTitle className="font-display uppercase tracking-wider">
+              Сброс пароля
+            </DialogTitle>
+            <DialogDescription className="text-zinc-500 text-sm">
+              Установите новый пароль для{" "}
+              <span className="text-zinc-200">{resetTarget?.username}</span>.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="mt-2">
+            <Label className="text-[10px] uppercase tracking-[0.35em] text-zinc-500">
+              Новый пароль
+            </Label>
+            <Input
+              type="password"
+              value={resetPw}
+              onChange={(e) => setResetPw(e.target.value)}
+              data-testid="mod-reset-password-input"
+              className="rounded-none bg-black border-zinc-800 focus-visible:ring-1 focus-visible:ring-[#8A0303] focus-visible:border-[#8A0303] text-zinc-100 h-11 mt-2"
+            />
+          </div>
+          <DialogFooter className="mt-6">
+            <Button
+              onClick={resetPassword}
+              disabled={resetPw.length < 4 || resetLoading}
+              data-testid="mod-reset-confirm"
+              className="rounded-none bg-[#8A0303] hover:bg-[#A10A0A] text-white h-11 px-6 uppercase tracking-[0.25em] text-[11px] font-semibold disabled:opacity-50"
+            >
+              {resetLoading ? "Сохранение..." : "Сохранить"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

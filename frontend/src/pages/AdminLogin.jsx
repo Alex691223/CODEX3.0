@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
+import { X } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { formatApiErrorDetail } from "@/lib/api";
 
@@ -34,6 +35,15 @@ export default function AdminLogin() {
       className="min-h-screen bg-[#050505] flex items-center justify-center px-6 relative grain"
     >
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_rgba(138,3,3,0.08),_transparent_70%)]" />
+
+      <Link
+        to="/"
+        data-testid="login-close-btn"
+        aria-label="Закрыть"
+        className="absolute top-5 right-5 md:top-8 md:right-8 w-10 h-10 border border-zinc-800 bg-black/60 backdrop-blur hover:border-[#8A0303] hover:text-white text-zinc-400 flex items-center justify-center transition-colors"
+      >
+        <X className="w-4 h-4" />
+      </Link>
 
       <div className="relative w-full max-w-md">
         <Link

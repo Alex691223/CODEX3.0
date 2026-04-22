@@ -1,4 +1,6 @@
+import { useEffect, useState } from "react";
 import { Shield, Scroll, Skull } from "lucide-react";
+import api from "@/lib/api";
 
 const LOGO_URL =
   "https://customer-assets.emergentagent.com/job_535564d9-799e-4642-b186-394f0ab11df3/artifacts/rsfdijom_ffa2f81b404119670950330265bb8dce_.png";
@@ -9,13 +11,24 @@ const tenets = [
   { icon: Skull, title: "Память", body: "Мы не прощаем предательства." },
 ];
 
+const DEFAULTS = {
+  territory_label: "Владения",
+  territory_desc: "Тени Redwood — там, где затихают чужие голоса",
+  history_text:
+    "Всё началось в 2026 на улицах Redwood. Двое нашли общий язык там, где его уже никто не искал — Theo Codex и Butcher Codex. Из их договора родилась семья, которая не прощает слабость и не забывает долгов. Мы не рассказываем о себе в чатах — CODEX узнают по делам.",
+  server_name: "Redwood · 5RP",
+  founded_year: "2026",
+};
+
 export function LoreSection() {
+  const [s, setS] = useState(DEFAULTS);
+
+  useEffect(() => {
+    api.get("/settings").then(({ data }) => setS({ ...DEFAULTS, ...data })).catch(() => {});
+  }, []);
+
   return (
-    <section
-      id="lore"
-      data-testid="lore-section"
-      className="relative py-24 md:py-32 bg-[#050505]"
-    >
+    <section id="lore" data-testid="lore-section" className="relative py-24 md:py-32 bg-[#050505]">
       <div className="max-w-7xl mx-auto px-6 md:px-10">
         <div className="flex items-center gap-3 mb-10">
           <span className="block w-10 h-px bg-[#8A0303]" />
@@ -25,7 +38,6 @@ export function LoreSection() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-12 gap-6 lg:gap-8">
-          {/* Logo artifact */}
           <div
             className="md:col-span-5 lg:col-span-5 relative border border-zinc-900 bg-black overflow-hidden group flex flex-col"
             data-testid="lore-logo-card"
@@ -43,12 +55,11 @@ export function LoreSection() {
               data-testid="lore-emblem-caption"
             >
               <span className="font-display text-sm uppercase tracking-[0.55em] text-zinc-400">
-                EST. 2026
+                EST. {s.founded_year || "2026"}
               </span>
             </div>
           </div>
 
-          {/* Manifest */}
           <div
             className="md:col-span-7 lg:col-span-7 border border-zinc-900 bg-[#0a0a0a] p-8 md:p-10 relative"
             data-testid="lore-manifest-card"
@@ -59,12 +70,11 @@ export function LoreSection() {
             <h2 className="font-display text-3xl md:text-4xl uppercase mt-4 text-zinc-50">
               История, написанная кровью и тишиной
             </h2>
-            <p className="text-zinc-400 mt-6 leading-relaxed text-base max-w-xl">
-              Всё началось в 2026 на улицах Redwood. Двое нашли общий язык там,
-              где его уже никто не искал — <span className="text-zinc-200">Theo Codex</span>
-              {" "}и <span className="text-zinc-200">Butcher Codex</span>. Из их договора
-              родилась семья, которая не прощает слабость и не забывает долгов.
-              Мы не рассказываем о себе в чатах — CODEX узнают по делам.
+            <p
+              data-testid="lore-history-text"
+              className="text-zinc-400 mt-6 leading-relaxed text-base max-w-xl whitespace-pre-wrap"
+            >
+              {s.history_text}
             </p>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-10">
@@ -84,20 +94,27 @@ export function LoreSection() {
             </div>
           </div>
 
-          {/* Stat blocks */}
           <div className="md:col-span-4 border border-zinc-900 bg-[#0a0a0a] p-7" data-testid="lore-stat-server">
             <div className="text-[10px] uppercase tracking-[0.4em] text-zinc-500">Сервер</div>
-            <div className="font-display text-2xl md:text-3xl mt-3 text-zinc-100">Redwood</div>
+            <div className="font-display text-2xl md:text-3xl mt-3 text-zinc-100">
+              {s.server_name || "Redwood"}
+            </div>
             <div className="mt-2 text-zinc-500 text-sm">Платформа — GTA 5RP</div>
           </div>
           <div className="md:col-span-4 border border-zinc-900 bg-[#0a0a0a] p-7" data-testid="lore-stat-territory">
-            <div className="text-[10px] uppercase tracking-[0.4em] text-zinc-500">Территория</div>
-            <div className="font-display text-2xl md:text-3xl mt-3 text-zinc-100">Тени Redwood</div>
-            <div className="mt-2 text-zinc-500 text-sm">Где затихают чужие голоса</div>
+            <div className="text-[10px] uppercase tracking-[0.4em] text-zinc-500">
+              {s.territory_label || DEFAULTS.territory_label}
+            </div>
+            <div className="font-display text-2xl md:text-3xl mt-3 text-zinc-100">
+              {s.territory_desc || DEFAULTS.territory_desc}
+            </div>
+            <div className="mt-2 text-zinc-500 text-sm">Под защитой семьи</div>
           </div>
           <div className="md:col-span-4 border border-zinc-900 bg-[#0a0a0a] p-7" data-testid="lore-stat-founded">
             <div className="text-[10px] uppercase tracking-[0.4em] text-zinc-500">Основано</div>
-            <div className="font-display text-2xl md:text-3xl mt-3 text-zinc-100">2026</div>
+            <div className="font-display text-2xl md:text-3xl mt-3 text-zinc-100">
+              {s.founded_year || "2026"}
+            </div>
             <div className="mt-2 text-zinc-500 text-sm">Theo Codex · Butcher Codex</div>
           </div>
         </div>

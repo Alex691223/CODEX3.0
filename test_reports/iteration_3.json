@@ -1,0 +1,58 @@
+{
+  "summary": "Iteration 3 full-stack test. Backend: 17/18 pytest pass in new test_iteration3.py (security headers, expanded settings incl. partial PUT preserves others, members CRUD seeded+5, change-password with wrong/short/success flows + relogin, admin reset-password, moderator password min length 4 enforced via Pydantic 422, applications ?search=&status= filtering, drive categories create(any auth)/delete(admin), drive file upload with category_id + is_image + ext + filter by category_id + __none__ + inline download). 1 FAIL: brute-force lockout does NOT trigger — root cause: `get_remote_address` returns ingress pod IP which rotates across multiple replicas (10.211.3.156 / 10.211.3.157), so attempts are split across keys and never reach BRUTE_FORCE_LIMIT=8. Frontend: login-close-btn → /, all expanded settings testids present (server_name, founded_year, territory_label, territory_desc, discord_url, hero_subtitle, history_text), 5 member rows (members-add-toggle), Profile tab + change-password-form with all 4 fields visible, 2 mod-reset buttons on Moderators tab, Drive tab has drive-calendar-slider + drive-filter-category + drive-new-category-btn + drive-upload-category. Hero no longer shows 'Глав 2'; footer no '© CODEX' text and shows 'Redwood · 5RP · Est. 2026'; Territory label 'Владения' present. 1 REGRESSION: admin logout lands on /admin instead of / (RCA below).",
+  "backend_issues": {
+    "critical": [
+      {
+        "endpoint": "/api/auth/login (brute-force)",
+        "issue": "Brute-force lockout never triggers in prod preview because slowapi's get_remote_address returns the immediate upstream IP (k8s ingress pod), which rotates between replicas. Each distinct upstream IP creates a new `ip:username` key, so count per key stays below 8. Verified: 12 consecutive failed logins for a fresh username returned 401, 0 × 429. DB shows attempts split across two keys (10.211.3.156:... and 10.211.3.157:...).",
+        "priority": "HIGH"
+      }
+    ],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "AdminDashboard logout",
+        "issue": "Clicking admin-logout-btn lands on /admin (login page) instead of / (landing). RCA: handleLogout() calls logout() then navigate('/'); but logout() synchronously clears user → RequireAuth in /app/frontend/src/App.js:19 renders <Navigate to=\"/admin\" replace /> before the navigate('/') effect lands, so the replace wins. Fix: call navigate('/') BEFORE logout(), or change RequireAuth fallback to '/' (iteration-3 spec explicitly says 'logout → /').",
+        "selector": "[data-testid=\"admin-logout-btn\"]",
+        "priority": "HIGH"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration3.py",
+    "/app/backend/tests/backend_test.py",
+    "/app/test_reports/pytest/iteration3_results.xml"
+  ],
+  "action_items": [
+    "FIX logout redirect: in /app/frontend/src/pages/AdminDashboard.jsx handleLogout — call navigate('/', { replace: true }) before logout(), OR change /app/frontend/src/App.js RequireAuth to <Navigate to='/' replace /> (simpler & matches spec). Retest that admin-logout-btn lands on /.",
+    "FIX brute-force key: use request.headers.get('x-forwarded-for', '').split(',')[0].strip() or X-Real-IP as the IP component (slowapi supports `X-Forwarded-For` via `get_remote_address` only if proxy is configured). Alternative: make the brute-force key username-only (ignore IP) since the lockout is already scoped per-username and the 15-min window + TTL index keep abuse contained. After fix: re-run TestBruteForce.test_lockout_after_8_failed — should return 429 by the 9th attempt."
+  ],
+  "critical_code_review_comments": [
+    "Brute-force implementation uses `get_remote_address(request)` which in k8s preview maps to ingress pod IP (not client IP). This is a security gap — attacker can circumvent lockout because each retry may hit a different upstream replica.",
+    "AdminDashboard.handleLogout uses navigate('/') but is racing with RequireAuth's <Navigate to='/admin'> — root cause of the iteration-3 regression. The two navigate operations should be ordered (navigate first, then logout) OR the guard's fallback should be '/'.",
+    "change_password endpoint correctly uses Pydantic min_length=4 (returns 422 on short pwd), verifies current_password (401 if wrong), and blocks same-as-current with 400. Good.",
+    "POST /api/moderators/{id}/reset-password reuses PasswordChangeBody model but ignores current_password — works but payload shape is misleading; consider a dedicated AdminResetBody with only new_password.",
+    "SecurityHeadersMiddleware correctly sets X-Content-Type-Options, X-Frame-Options: DENY, Referrer-Policy, Permissions-Policy, Cross-Origin-Resource-Policy on every response including /api/ responses.",
+    "DELETE /api/drive/categories orphans files (sets category_id=null). Good UX — prevents cascading data loss.",
+    "Applications search sanitizes to [alnum _-@#+.] then re.escape — safe from regex injection.",
+    "seed_members is idempotent (guarded by count>0) — verified on second startup no duplicates.",
+    "drive/files inline download sets Content-Disposition: inline correctly when ?inline=true — images can be embedded in <img src=...> via the ?auth=<jwt> query fallback."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iteration3.py (new — 18 tests covering iteration 3 features)"
+  ],
+  "success_rate": {
+    "backend": "94% (17/18 pytest pass — 1 security failure: brute-force)",
+    "frontend": "92% (all new testids present; 1 regression: logout→/admin instead of /)"
+  },
+  "test_credentials": "admin alex/123 (seeded)",
+  "seed_data_creation": "Tests create TEST_ prefixed members/applications/files/categories and clean them up; a few login_attempts rows are left (TTL 1h auto-cleanup).",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Run both /app/backend/tests/backend_test.py AND /app/backend/tests/test_iteration3.py via `export $(grep -v '^#' /app/frontend/.env | xargs) && pytest /app/backend/tests/ -v`. Brute-force test needs a prod proxy that preserves X-Forwarded-For OR switch to username-only key. For frontend, retest: (1) admin-logout-btn lands on / ; (2) mod-reset-{id} opens dialog → fill mod-reset-password-input → click mod-reset-confirm → login with new pwd; (3) drive-export-csv-btn appears after opening a sheet (drive-open-sheet-{id}); (4) Discord 'Discord обязателен' removal from ApplicationForm (not re-tested here — selector for open-application button differs from 'open-application-btn'; landing uses 'Подать заявку' textual button). Do not run TestBruteForce in CI until fix lands — it will stay red.",
+  "rca of the issue": "1) Logout regression — RequireAuth fires before navigate('/'); swap order or change fallback. 2) Brute-force bypass — per-upstream-IP key splits counters; use X-Forwarded-For first token or username-only."
+}

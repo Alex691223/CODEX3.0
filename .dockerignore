@@ -1,0 +1,14 @@
+.git
+.gitignore
+node_modules
+**/node_modules
+frontend/build
+**/__pycache__
+**/*.pyc
+**/.env
+**/.env.local
+**/.env.*.local
+test_reports
+tests
+.vscode
+.idea

@@ -1,23 +1,21 @@
+import { useEffect, useState } from "react";
 import { Crown, Star, User } from "lucide-react";
+import api from "@/lib/api";
 
 const TEXTURE =
   "https://static.prod-images.emergentagent.com/jobs/535564d9-799e-4642-b186-394f0ab11df3/images/2a0662eb40492495727e984b6a794f8d1d6d27e33a055eebe6cea541a7a084a7.png";
 
-const leaders = [
-  { role: "Глава семьи", name: "Theo Codex", discord: "oksfor", icon: Crown, tag: "Don" },
-  { role: "Глава семьи", name: "Butcher Codex", discord: "snookesjk", icon: Crown, tag: "Don" },
-];
-
-const advisors = [
-  { role: "Советник", name: "Eva Codex", discord: "mesaiq", icon: Star },
-  { role: "Советник", name: "Bushido Codex", discord: "cos_tas4", icon: Star },
-];
-
-const important = [
-  { role: "Важный человек", name: "Owner Codex", discord: "qweurip", icon: User },
-];
-
 export function RosterSection() {
+  const [members, setMembers] = useState([]);
+
+  useEffect(() => {
+    api.get("/members").then(({ data }) => setMembers(data || [])).catch(() => {});
+  }, []);
+
+  const owners = members.filter((m) => m.rank === "owner");
+  const advisors = members.filter((m) => m.rank === "advisor");
+  const important = members.filter((m) => m.rank === "important");
+
   return (
     <section
       id="roster"
@@ -48,32 +46,59 @@ export function RosterSection() {
           </p>
         </div>
 
-        {/* Owners */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
-          {leaders.map((m, i) => (
-            <MemberCard key={i} member={m} testId={`roster-owner-${i}`} big />
-          ))}
-        </div>
-
-        {/* Advisors */}
-        <div className="mb-10">
-          <div className="text-[10px] uppercase tracking-[0.4em] text-zinc-500 mb-4">Советники</div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {advisors.map((m, i) => (
-              <MemberCard key={i} member={m} testId={`roster-advisor-${i}`} />
+        {owners.length > 0 && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
+            {owners.map((m, i) => (
+              <MemberCard
+                key={m.id}
+                member={{ ...m, role: "Глава семьи", icon: Crown, tag: "Don" }}
+                testId={`roster-owner-${i}`}
+                big
+              />
             ))}
           </div>
-        </div>
+        )}
 
-        {/* Important */}
-        <div>
-          <div className="text-[10px] uppercase tracking-[0.4em] text-zinc-500 mb-4">Важные люди</div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {important.map((m, i) => (
-              <MemberCard key={i} member={m} testId={`roster-important-${i}`} compact />
-            ))}
+        {advisors.length > 0 && (
+          <div className="mb-10">
+            <div className="text-[10px] uppercase tracking-[0.4em] text-zinc-500 mb-4">
+              Советники
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {advisors.map((m, i) => (
+                <MemberCard
+                  key={m.id}
+                  member={{ ...m, role: "Советник", icon: Star }}
+                  testId={`roster-advisor-${i}`}
+                />
+              ))}
+            </div>
           </div>
-        </div>
+        )}
+
+        {important.length > 0 && (
+          <div>
+            <div className="text-[10px] uppercase tracking-[0.4em] text-zinc-500 mb-4">
+              Важные люди
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {important.map((m, i) => (
+                <MemberCard
+                  key={m.id}
+                  member={{ ...m, role: "Важный человек", icon: User }}
+                  testId={`roster-important-${i}`}
+                  compact
+                />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {members.length === 0 && (
+          <div className="border border-zinc-900 bg-[#0a0a0a] p-10 text-center text-zinc-500">
+            Состав семьи скоро появится.
+          </div>
+        )}
       </div>
     </section>
   );
@@ -127,11 +152,15 @@ function MemberCard({ member, testId, big = false, compact = false }) {
       >
         <div>
           <div className="text-zinc-600">Discord</div>
-          <div className="text-zinc-200 mt-1 normal-case tracking-normal">{member.discord}</div>
+          <div className="text-zinc-200 mt-1 normal-case tracking-normal">
+            {member.discord || "—"}
+          </div>
         </div>
         <div>
           <div className="text-zinc-600">Стаж</div>
-          <div className="text-zinc-200 mt-1 normal-case tracking-normal">с момента основания</div>
+          <div className="text-zinc-200 mt-1 normal-case tracking-normal">
+            {member.tenure || "—"}
+          </div>
         </div>
       </div>
     </div>

@@ -82,7 +82,6 @@ export function ApplicationForm() {
               <ul className="mt-10 space-y-2 text-[11px] uppercase tracking-[0.3em] text-zinc-500">
                 <li>— Возраст от 16 лет</li>
                 <li>— Рабочий микрофон</li>
-                <li>— Discord обязателен</li>
                 <li>— Стабильный онлайн</li>
               </ul>
             </div>
@@ -112,8 +111,10 @@ export function ApplicationForm() {
                 label="Ваш возраст (IRL)"
                 testId="app-field-age"
                 type="number"
+                inputMode="numeric"
                 min={10}
                 max={99}
+                step={1}
                 value={form.age}
                 onChange={onChange("age")}
                 required
