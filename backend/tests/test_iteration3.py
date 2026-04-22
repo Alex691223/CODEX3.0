@@ -293,10 +293,32 @@ class TestDriveFilesCategory:
 class TestBruteForce:
     def test_lockout_after_8_failed(self):
         uname = f"bf_probe_{uuid.uuid4().hex[:6]}"
-        got_429 = False
-        for _ in range(12):
-            r = requests.post(f"{API}/auth/login", json={"username": uname, "password": "nope"})
+        headers = {"X-Forwarded-For": "9.9.9.9"}
+        lockout_attempt = None
+        for i in range(1, 13):
+            r = requests.post(f"{API}/auth/login",
+                              json={"username": uname, "password": "nope"},
+                              headers=headers)
             if r.status_code == 429:
-                got_429 = True
+                lockout_attempt = i
                 break
-        assert got_429, "Expected 429 lockout after repeated failures"
+            assert r.status_code == 401, f"attempt {i} got {r.status_code}"
+        assert lockout_attempt is not None, "Expected 429 lockout after repeated failures"
+        assert lockout_attempt <= 9, f"Expected 429 by attempt 9, got at {lockout_attempt}"
+
+    def test_lockout_with_ip_rotation(self):
+        """Username-only secondary counter should catch IP rotation."""
+        uname = f"bf_rotate_{uuid.uuid4().hex[:6]}"
+        lockout_attempt = None
+        for i in range(1, 25):
+            # rotate IP every attempt to bypass ip:username key
+            headers = {"X-Forwarded-For": f"10.0.0.{i}"}
+            r = requests.post(f"{API}/auth/login",
+                              json={"username": uname, "password": "nope"},
+                              headers=headers)
+            if r.status_code == 429:
+                lockout_attempt = i
+                break
+        assert lockout_attempt is not None, "username-only counter should lock even with IP rotation"
+        # threshold is 2*BRUTE_FORCE_LIMIT = 16 for username-only counter
+        assert lockout_attempt <= 17, f"Expected username-counter lockout by attempt 17, got {lockout_attempt}"

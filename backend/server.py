@@ -219,28 +219,42 @@ async def root():
     return {"message": "CODEX API", "status": "ok"}
 
 # ----- Brute force helpers -----
+def get_client_ip(request: Request) -> str:
+    xff = request.headers.get("x-forwarded-for", "")
+    if xff:
+        first = xff.split(",")[0].strip()
+        if first:
+            return first
+    real = request.headers.get("x-real-ip", "").strip()
+    if real:
+        return real
+    return (request.client.host if request.client else "unknown")[:45]
+
 async def check_brute_force(ip: str, username: str):
     key = f"{ip}:{username}"
     cutoff = datetime.now(timezone.utc) - timedelta(minutes=BRUTE_FORCE_WINDOW_MIN)
     count = await db.login_attempts.count_documents({"key": key, "at": {"$gte": cutoff.isoformat()}})
-    if count >= BRUTE_FORCE_LIMIT:
+    # also check username-only counter (defends against IP rotation)
+    u_count = await db.login_attempts.count_documents({"uname": username, "at": {"$gte": cutoff.isoformat()}})
+    if count >= BRUTE_FORCE_LIMIT or u_count >= BRUTE_FORCE_LIMIT * 2:
         raise HTTPException(status_code=429, detail="Слишком много попыток. Попробуйте позже.")
 
 async def record_failed_login(ip: str, username: str):
     await db.login_attempts.insert_one({
         "key": f"{ip}:{username}",
+        "uname": username,
         "at": datetime.now(timezone.utc).isoformat(),
     })
 
 async def clear_login_attempts(ip: str, username: str):
-    await db.login_attempts.delete_many({"key": f"{ip}:{username}"})
+    await db.login_attempts.delete_many({"$or": [{"key": f"{ip}:{username}"}, {"uname": username}]})
 
 # ----- Auth -----
 @api_router.post("/auth/login")
 @limiter.limit("20/minute")
 async def login(request: Request, body: LoginBody):
     username = body.username.strip().lower()
-    ip = get_remote_address(request)
+    ip = get_client_ip(request)
     await check_brute_force(ip, username)
     user = await db.users.find_one({"username": username})
     if not user or not verify_password(body.password, user["password_hash"]):
@@ -757,6 +771,7 @@ async def on_startup():
     await db.drive_files.create_index("day")
     await db.drive_files.create_index("is_deleted")
     await db.login_attempts.create_index("key")
+    await db.login_attempts.create_index("uname")
     await db.login_attempts.create_index("at", expireAfterSeconds=3600)
     await db.members.create_index("rank")
     await seed_admin()

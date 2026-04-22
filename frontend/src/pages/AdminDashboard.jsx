@@ -75,7 +75,7 @@ export default function AdminDashboard() {
 
   const doLogout = () => {
     logout();
-    navigate("/");
+    window.location.href = "/";
   };
 
   const updateAppStatus = async (id, status) => {

@@ -1,0 +1,38 @@
+{
+  "summary": "Iteration 3.1 re-verification. Both previously-failing items now PASS. Backend: 59/59 pytest tests green (entire suite: backend_test.py + test_iteration3.py). Brute-force lockout with X-Forwarded-For: 9.9.9.9 header triggers 429 by the 9th attempt (verified). Added a new test_lockout_with_ip_rotation which rotates X-Forwarded-For each attempt (10.0.0.1 .. 10.0.0.24) and verifies the username-only secondary counter (threshold 2*BRUTE_FORCE_LIMIT=16) still locks out. Frontend: admin-logout-btn now does logout() then window.location.href='/' — verified the browser lands on '/' (landing page, NOT /admin). Auth guard then correctly redirects /admin/dashboard back to /admin after logout, and localStorage codex_token is cleared. No regressions to other previously-passing tests.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration3.py",
+    "/app/backend/tests/backend_test.py",
+    "/app/test_reports/pytest/iteration4_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "get_client_ip() correctly prefers X-Forwarded-For (first token), falls back to X-Real-IP, then request.client.host — good standard ordering.",
+    "check_brute_force uses two counters: per (ip:username) key with BRUTE_FORCE_LIMIT=8, and per-username-only with threshold 2*BRUTE_FORCE_LIMIT=16. This defeats IP rotation while keeping some tolerance for legitimate shared-IP retries.",
+    "clear_login_attempts wipes BOTH the ip:username key document and all username-matching docs via $or — successful login properly resets both counters.",
+    "AdminDashboard.doLogout now uses window.location.href='/' for a hard redirect, side-stepping the RequireAuth <Navigate to='/admin'> race condition entirely. Clean fix.",
+    "Minor: consider also caching/truncating X-Forwarded-For more defensively if abuse via injected header occurs (unlikely behind trusted ingress), but not a blocker."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iteration3.py (TestBruteForce: now sends X-Forwarded-For: 9.9.9.9 and asserts lockout by attempt 9; added test_lockout_with_ip_rotation to exercise the username-only secondary counter)"
+  ],
+  "success_rate": {
+    "backend": "100% (59/59 pytest pass)",
+    "frontend": "100% (admin-logout-btn → / verified, guard works, token cleared)"
+  },
+  "test_credentials": "admin alex/123 (seeded)",
+  "seed_data_creation": "TEST_ prefixed members/applications/files/categories are created and cleaned up by tests. login_attempts rows auto-expire via 1h TTL.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "All iteration 3 items now green. The TestBruteForce class sets X-Forwarded-For explicitly so it is deterministic across environments. Run via: export $(grep -v '^#' /app/frontend/.env | xargs) && pytest /app/backend/tests/ -v",
+  "rca of the issue": "Previous logout bug — RequireAuth's <Navigate to='/admin'> replaced the client-side navigate('/'); fixed by doing a full-page window.location.href='/' reload after logout() so React Router state is discarded before the guard runs. Previous brute-force bug — slowapi's get_remote_address used the ingress pod IP which rotated across replicas so ip:username counter never reached threshold; fixed by reading X-Forwarded-For first in get_client_ip AND adding a username-only secondary counter at threshold 2*BRUTE_FORCE_LIMIT."
+}
