@@ -5,6 +5,15 @@
 - **Frontend:** React 19 + Tailwind + shadcn/ui + Sonner + react-day-picker
 - **Deploy:** Docker + nginx + Let's Encrypt (Namecheap VPS)
 
+## Implemented (iteration 5 — cPanel port)
+- **Parallel cPanel build** в `/app/cpanel/` — тот же сайт, работает на Namecheap Shared Hosting (cPanel) без Docker/VPS.
+  - Backend: FastAPI + PyMySQL + bcrypt + PyJWT, in-memory rate-limit, локальное файловое хранилище вне `public_html`.
+  - Passenger WSGI wrapper (`a2wsgi`) — cPanel «Setup Python App» сам поднимает приложение.
+  - Автоматический seed админа, настроек, рангов и участников на старте.
+  - 46/46 smoke-тестов зелёные (MariaDB 10.11, локально) — 100% контрактная совместимость с оригинальным `/api/*`.
+  - Дисковая запись файлов (`UPLOAD_DIR` вне `public_html`), скачивание `FileResponse` с Bearer или `?auth=`-токеном.
+  - Файлы: `cpanel/backend/server.py` (717 строк), `passenger_wsgi.py`, `requirements.txt`, `.env.example`, `.htaccess` для SPA, `build_frontend_for_cpanel.sh`, `DEPLOY_CPANEL.md` (пошаговая инструкция).
+
 ## Implemented (iteration 4)
 - **Audit log** — `/api/audit`, каждая значимая операция (логин, заявки, модераторы, участники, настройки, ранги, файлы, таблицы, категории) пишет событие. Вкладка «Журнал» с фильтром действий и поиском.
 - **Text file editor** — `.txt`, `.md`, `.csv`, `.json`, `.xml`, `.html`, `.css`, `.js`, `.ts`, `.py`, `.yaml`, `.yml`, `.log` открываются прямо в браузере в редакторе. Права: админ редактирует любой, модератор — только свои.
