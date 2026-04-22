@@ -56,7 +56,7 @@ export default function AdminLogin() {
             <h1 className="font-display text-2xl uppercase text-zinc-50 mt-3">
               Администрация
             </h1>
-            <p className="text-zinc-500 text-sm mt-2">Только для членов семьи.</p>
+            <p className="text-zinc-500 text-sm mt-2">Только для высших рангов.</p>
           </div>
 
           <div className="space-y-2">

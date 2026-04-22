@@ -72,12 +72,12 @@ export function Hero() {
             <span className="h-8 w-px bg-zinc-800" />
             <div>
               <div className="text-zinc-600">Основано</div>
-              <div className="text-zinc-300 mt-1">Неизвестно</div>
+              <div className="text-zinc-300 mt-1">2026</div>
             </div>
             <span className="h-8 w-px bg-zinc-800" />
             <div>
               <div className="text-zinc-600">Глав</div>
-              <div className="text-zinc-300 mt-1">—</div>
+              <div className="text-zinc-300 mt-1">2</div>
             </div>
           </div>
         </div>

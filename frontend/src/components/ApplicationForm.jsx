@@ -11,11 +11,13 @@ const FORM_BG =
 
 const initial = {
   nickname: "",
-  discord: "",
+  real_name: "",
   age: "",
-  static_id: "",
-  reason: "",
-  rp_experience: "",
+  online_schedule: "",
+  timezone_info: "",
+  previous_families: "",
+  invited_by: "",
+  in_game_activity: "",
 };
 
 export function ApplicationForm() {
@@ -29,15 +31,14 @@ export function ApplicationForm() {
     e.preventDefault();
     setLoading(true);
     try {
-      await api.post("/applications", {
-        ...form,
-        age: Number(form.age),
-      });
+      await api.post("/applications", { ...form, age: Number(form.age) });
       toast.success("Заявка отправлена. Мы свяжемся с тобой.");
       setForm(initial);
       setSent(true);
     } catch (err) {
-      toast.error(formatApiErrorDetail(err?.response?.data?.detail) || "Не удалось отправить заявку");
+      toast.error(
+        formatApiErrorDetail(err?.response?.data?.detail) || "Не удалось отправить заявку"
+      );
     } finally {
       setLoading(false);
     }
@@ -58,7 +59,6 @@ export function ApplicationForm() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          {/* Side image panel */}
           <div
             className="lg:col-span-5 relative border border-zinc-900 bg-black overflow-hidden min-h-[280px] lg:min-h-full"
             data-testid="application-image-panel"
@@ -75,8 +75,8 @@ export function ApplicationForm() {
                   Подать заявку
                 </h3>
                 <p className="text-zinc-400 mt-5 leading-relaxed max-w-sm text-sm">
-                  Заполни анкету честно. Модераторы CODEX рассмотрят каждый отклик
-                  лично. Пустые и фейковые заявки — в корзину.
+                  Заполни анкету честно. Модераторы CODEX рассмотрят каждый отклик лично.
+                  Пустые и фейковые заявки — в корзину.
                 </p>
               </div>
               <ul className="mt-10 space-y-2 text-[11px] uppercase tracking-[0.3em] text-zinc-500">
@@ -88,7 +88,6 @@ export function ApplicationForm() {
             </div>
           </div>
 
-          {/* Form */}
           <form
             onSubmit={submit}
             className="lg:col-span-7 border border-zinc-900 bg-[#0a0a0a] p-7 md:p-10 space-y-5"
@@ -103,15 +102,14 @@ export function ApplicationForm() {
                 required
               />
               <FormField
-                label="Discord"
-                testId="app-field-discord"
-                placeholder="username#0000"
-                value={form.discord}
-                onChange={onChange("discord")}
+                label="Как зовут (IRL)"
+                testId="app-field-real-name"
+                value={form.real_name}
+                onChange={onChange("real_name")}
                 required
               />
               <FormField
-                label="Возраст (IRL)"
+                label="Ваш возраст (IRL)"
                 testId="app-field-age"
                 type="number"
                 min={10}
@@ -121,28 +119,48 @@ export function ApplicationForm() {
                 required
               />
               <FormField
-                label="Статик ID"
-                testId="app-field-static"
-                value={form.static_id}
-                onChange={onChange("static_id")}
+                label="Часовой пояс"
+                testId="app-field-timezone"
+                placeholder="напр. GMT+3"
+                value={form.timezone_info}
+                onChange={onChange("timezone_info")}
                 required
               />
             </div>
 
             <TextareaField
-              label="Почему хочешь вступить в CODEX?"
-              testId="app-field-reason"
-              value={form.reason}
-              onChange={onChange("reason")}
+              label="Среднесуточный онлайн и время (утро/день/ночь)"
+              testId="app-field-online"
+              placeholder="напр. 4–6 часов, вечер/ночь"
+              value={form.online_schedule}
+              onChange={onChange("online_schedule")}
               required
-              rows={4}
+              rows={3}
             />
 
             <TextareaField
-              label="Опыт в РП"
-              testId="app-field-experience"
-              value={form.rp_experience}
-              onChange={onChange("rp_experience")}
+              label="Были в других семьях? Если да, то в каких"
+              testId="app-field-prev-families"
+              value={form.previous_families}
+              onChange={onChange("previous_families")}
+              required
+              rows={3}
+            />
+
+            <TextareaField
+              label="Кто вас пригласил / откуда узнали про семью"
+              testId="app-field-invited-by"
+              value={form.invited_by}
+              onChange={onChange("invited_by")}
+              required
+              rows={3}
+            />
+
+            <TextareaField
+              label="Чем занимаетесь в игре"
+              testId="app-field-activity"
+              value={form.in_game_activity}
+              onChange={onChange("in_game_activity")}
               required
               rows={4}
             />

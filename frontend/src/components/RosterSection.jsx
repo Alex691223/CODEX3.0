@@ -4,15 +4,17 @@ const TEXTURE =
   "https://static.prod-images.emergentagent.com/jobs/535564d9-799e-4642-b186-394f0ab11df3/images/2a0662eb40492495727e984b6a794f8d1d6d27e33a055eebe6cea541a7a084a7.png";
 
 const leaders = [
-  { role: "Глава семьи", name: "Неизвестно", icon: Crown, tag: "Don" },
-  { role: "Глава семьи", name: "Неизвестно", icon: Crown, tag: "Don" },
+  { role: "Глава семьи", name: "Theo Codex", discord: "oksfor", icon: Crown, tag: "Don" },
+  { role: "Глава семьи", name: "Butcher Codex", discord: "snookesjk", icon: Crown, tag: "Don" },
+];
+
+const advisors = [
+  { role: "Советник", name: "Eva Codex", discord: "mesaiq", icon: Star },
+  { role: "Советник", name: "Bushido Codex", discord: "cos_tas4", icon: Star },
 ];
 
 const important = [
-  { role: "Советник", name: "Неизвестно", icon: Star },
-  { role: "Советник", name: "Неизвестно", icon: Star },
-  { role: "Важный человек", name: "Неизвестно", icon: User },
-  { role: "Важный человек", name: "Неизвестно", icon: User },
+  { role: "Важный человек", name: "Owner Codex", discord: "qweurip", icon: User },
 ];
 
 export function RosterSection() {
@@ -42,78 +44,97 @@ export function RosterSection() {
             </h2>
           </div>
           <p className="max-w-sm text-zinc-500 text-sm leading-relaxed">
-            Здесь имена тех, кто держит семью. Полный состав пока не раскрыт — мы
-            не все готовы назвать публично.
+            Имена тех, кто держит семью — от основания до сегодняшнего дня.
           </p>
         </div>
 
         {/* Owners */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
           {leaders.map((m, i) => (
-            <div
-              key={i}
-              data-testid={`roster-owner-${i}`}
-              className="relative border border-zinc-900 bg-[#0a0a0a] p-8 md:p-10 hover:border-[#8A0303]/60 transition-all duration-500 group"
-            >
-              <span className="absolute top-0 left-0 w-full h-px bg-gradient-to-r from-[#8A0303] via-zinc-800 to-transparent" />
-              <div className="flex items-start justify-between">
-                <div className="flex items-center gap-4">
-                  <div className="w-14 h-14 border border-zinc-800 bg-black flex items-center justify-center group-hover:border-[#8A0303]/60 transition-colors">
-                    <m.icon className="w-6 h-6 text-[#8A0303]" />
-                  </div>
-                  <div>
-                    <div className="text-[10px] uppercase tracking-[0.4em] text-zinc-500">
-                      {m.role}
-                    </div>
-                    <div className="font-display text-2xl md:text-3xl uppercase text-zinc-50 mt-1">
-                      {m.name}
-                    </div>
-                  </div>
-                </div>
-                <span className="font-accent text-2xl text-zinc-600 group-hover:text-[#8A0303] transition-colors">
-                  {m.tag}
-                </span>
-              </div>
-
-              <div className="mt-8 pt-6 border-t border-zinc-900 grid grid-cols-3 gap-4 text-[11px] uppercase tracking-[0.25em] text-zinc-500">
-                <div>
-                  <div className="text-zinc-600">Discord</div>
-                  <div className="text-zinc-300 mt-1">Неизвестно</div>
-                </div>
-                <div>
-                  <div className="text-zinc-600">Статик</div>
-                  <div className="text-zinc-300 mt-1">Неизвестно</div>
-                </div>
-                <div>
-                  <div className="text-zinc-600">Стаж</div>
-                  <div className="text-zinc-300 mt-1">Неизвестно</div>
-                </div>
-              </div>
-            </div>
+            <MemberCard key={i} member={m} testId={`roster-owner-${i}`} big />
           ))}
+        </div>
+
+        {/* Advisors */}
+        <div className="mb-10">
+          <div className="text-[10px] uppercase tracking-[0.4em] text-zinc-500 mb-4">Советники</div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {advisors.map((m, i) => (
+              <MemberCard key={i} member={m} testId={`roster-advisor-${i}`} />
+            ))}
+          </div>
         </div>
 
         {/* Important */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {important.map((m, i) => (
-            <div
-              key={i}
-              data-testid={`roster-important-${i}`}
-              className="border border-zinc-900 bg-[#0a0a0a]/80 p-6 hover:border-zinc-600 transition-colors"
-            >
-              <m.icon className="w-5 h-5 text-zinc-400" />
-              <div className="mt-4 text-[10px] uppercase tracking-[0.35em] text-zinc-500">
-                {m.role}
-              </div>
-              <div className="font-display text-lg uppercase text-zinc-100 mt-1">
-                {m.name}
-              </div>
-              <div className="mt-4 text-[11px] text-zinc-600">Полная информация — позже</div>
-            </div>
-          ))}
+        <div>
+          <div className="text-[10px] uppercase tracking-[0.4em] text-zinc-500 mb-4">Важные люди</div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {important.map((m, i) => (
+              <MemberCard key={i} member={m} testId={`roster-important-${i}`} compact />
+            ))}
+          </div>
         </div>
       </div>
     </section>
+  );
+}
+
+function MemberCard({ member, testId, big = false, compact = false }) {
+  const Icon = member.icon;
+  return (
+    <div
+      data-testid={testId}
+      className={`relative border border-zinc-900 bg-[#0a0a0a] hover:border-[#8A0303]/60 transition-all duration-500 group ${
+        big ? "p-8 md:p-10" : compact ? "p-5" : "p-6"
+      }`}
+    >
+      {big && (
+        <span className="absolute top-0 left-0 w-full h-px bg-gradient-to-r from-[#8A0303] via-zinc-800 to-transparent" />
+      )}
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex items-center gap-4 min-w-0">
+          <div
+            className={`border border-zinc-800 bg-black flex items-center justify-center group-hover:border-[#8A0303]/60 transition-colors ${
+              big ? "w-14 h-14" : "w-11 h-11"
+            }`}
+          >
+            <Icon className={`text-[#8A0303] ${big ? "w-6 h-6" : "w-4 h-4"}`} />
+          </div>
+          <div className="min-w-0">
+            <div className="text-[10px] uppercase tracking-[0.4em] text-zinc-500">
+              {member.role}
+            </div>
+            <div
+              className={`font-display uppercase text-zinc-50 mt-1 truncate ${
+                big ? "text-2xl md:text-3xl" : "text-lg"
+              }`}
+            >
+              {member.name}
+            </div>
+          </div>
+        </div>
+        {member.tag && (
+          <span className="font-accent text-2xl text-zinc-600 group-hover:text-[#8A0303] transition-colors">
+            {member.tag}
+          </span>
+        )}
+      </div>
+
+      <div
+        className={`${
+          big ? "mt-8 pt-6" : "mt-5 pt-4"
+        } border-t border-zinc-900 grid grid-cols-2 gap-4 text-[11px] uppercase tracking-[0.25em] text-zinc-500`}
+      >
+        <div>
+          <div className="text-zinc-600">Discord</div>
+          <div className="text-zinc-200 mt-1 normal-case tracking-normal">{member.discord}</div>
+        </div>
+        <div>
+          <div className="text-zinc-600">Стаж</div>
+          <div className="text-zinc-200 mt-1 normal-case tracking-normal">с момента основания</div>
+        </div>
+      </div>
+    </div>
   );
 }
 

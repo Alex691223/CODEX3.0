@@ -5,6 +5,7 @@ import { AuthProvider, useAuth } from "@/context/AuthContext";
 import Home from "@/pages/Home";
 import AdminLogin from "@/pages/AdminLogin";
 import AdminDashboard from "@/pages/AdminDashboard";
+import AdminHotkey from "@/components/AdminHotkey";
 
 function ProtectedRoute({ children }) {
   const { user, checking } = useAuth();
@@ -24,6 +25,7 @@ function App() {
     <div className="App">
       <AuthProvider>
         <BrowserRouter>
+          <AdminHotkey />
           <Routes>
             <Route path="/" element={<Home />} />
             <Route path="/admin" element={<AdminLogin />} />

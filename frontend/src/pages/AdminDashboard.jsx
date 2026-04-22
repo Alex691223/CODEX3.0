@@ -29,6 +29,8 @@ import { LogOut, Plus, Trash2, Check, X, Mail } from "lucide-react";
 import { toast } from "sonner";
 import api, { formatApiErrorDetail } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
+import DrivePanel from "@/components/DrivePanel";
+import AnalyticsPanel from "@/components/AnalyticsPanel";
 
 export default function AdminDashboard() {
   const { user, logout } = useAuth();
@@ -54,9 +56,7 @@ export default function AdminDashboard() {
     try {
       const { data } = await api.get("/moderators");
       setModerators(data);
-    } catch (_) {
-      // ignore
-    }
+    } catch (_) {}
   }, [isAdmin]);
 
   const loadSettings = useCallback(async () => {
@@ -144,7 +144,7 @@ export default function AdminDashboard() {
 
       <main className="max-w-7xl mx-auto px-6 md:px-10 py-10">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
-          <Stat label="Всего" value={applications.length} testId="stat-total" />
+          <Stat label="Всего заявок" value={applications.length} testId="stat-total" />
           <Stat label="В ожидании" value={pending.length} accent testId="stat-pending" />
           <Stat label="Одобрено" value={approved.length} testId="stat-approved" />
           <Stat label="Отклонено" value={rejected.length} testId="stat-rejected" />
@@ -152,7 +152,7 @@ export default function AdminDashboard() {
 
         <Tabs defaultValue="applications">
           <TabsList
-            className="bg-transparent border border-zinc-900 rounded-none p-0 h-auto gap-0"
+            className="bg-transparent border border-zinc-900 rounded-none p-0 h-auto gap-0 flex-wrap"
             data-testid="admin-tabs"
           >
             <TabsTrigger
@@ -161,6 +161,20 @@ export default function AdminDashboard() {
               className="rounded-none px-6 py-3 text-[11px] uppercase tracking-[0.3em] data-[state=active]:bg-[#8A0303] data-[state=active]:text-white"
             >
               Заявки
+            </TabsTrigger>
+            <TabsTrigger
+              value="drive"
+              data-testid="tab-drive"
+              className="rounded-none px-6 py-3 text-[11px] uppercase tracking-[0.3em] data-[state=active]:bg-[#8A0303] data-[state=active]:text-white"
+            >
+              Диск
+            </TabsTrigger>
+            <TabsTrigger
+              value="analytics"
+              data-testid="tab-analytics"
+              className="rounded-none px-6 py-3 text-[11px] uppercase tracking-[0.3em] data-[state=active]:bg-[#8A0303] data-[state=active]:text-white"
+            >
+              Аналитика
             </TabsTrigger>
             {isAdmin && (
               <TabsTrigger
@@ -189,6 +203,14 @@ export default function AdminDashboard() {
               onUpdate={updateAppStatus}
               onDelete={deleteApp}
             />
+          </TabsContent>
+
+          <TabsContent value="drive" className="mt-8">
+            <DrivePanel user={user} />
+          </TabsContent>
+
+          <TabsContent value="analytics" className="mt-8">
+            <AnalyticsPanel />
           </TabsContent>
 
           {isAdmin && (
@@ -301,9 +323,9 @@ function ApplicationRow({ app, isAdmin, onUpdate, onDelete }) {
             </span>
           </div>
           <div className="mt-3 grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
-            <Field label="Discord" value={app.discord} />
+            <Field label="IRL имя" value={app.real_name} />
             <Field label="Возраст" value={app.age} />
-            <Field label="Статик ID" value={app.static_id} />
+            <Field label="Часовой пояс" value={app.timezone_info} />
             <Field label="Обработал" value={app.processed_by || "—"} />
           </div>
         </div>
@@ -329,12 +351,17 @@ function ApplicationRow({ app, isAdmin, onUpdate, onDelete }) {
                   Полная информация из анкеты на вступление.
                 </DialogDescription>
               </DialogHeader>
-              <div className="space-y-4 mt-3">
-                <Field label="Discord" value={app.discord} />
-                <Field label="Возраст" value={app.age} />
-                <Field label="Статик ID" value={app.static_id} />
-                <LongField label="Почему хочет вступить" value={app.reason} />
-                <LongField label="Опыт в РП" value={app.rp_experience} />
+              <div className="space-y-4 mt-3 max-h-[60vh] overflow-y-auto pr-2">
+                <div className="grid grid-cols-2 gap-4">
+                  <Field label="Ник в игре" value={app.nickname} />
+                  <Field label="Как зовут (IRL)" value={app.real_name} />
+                  <Field label="Возраст" value={app.age} />
+                  <Field label="Часовой пояс" value={app.timezone_info} />
+                </div>
+                <LongField label="Среднесуточный онлайн и время" value={app.online_schedule} />
+                <LongField label="Были в других семьях" value={app.previous_families} />
+                <LongField label="Кто пригласил / откуда узнали" value={app.invited_by} />
+                <LongField label="Чем занимается в игре" value={app.in_game_activity} />
               </div>
               <DialogFooter />
             </DialogContent>

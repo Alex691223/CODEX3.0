@@ -1,8 +1,7 @@
 import { Link } from "react-router-dom";
-import { Button } from "@/components/ui/button";
 
 const NAV = [
-  { id: "lore", label: "О семье" },
+  { id: "lore", label: "Кодекс" },
   { id: "roster", label: "Иерархия" },
   { id: "apply", label: "Анкета" },
   { id: "discord", label: "Discord" },
@@ -35,14 +34,9 @@ export function SiteHeader() {
           ))}
         </nav>
 
-        <Link to="/admin" data-testid="nav-admin">
-          <Button
-            variant="outline"
-            className="rounded-none border-zinc-800 bg-transparent hover:bg-zinc-900 hover:text-white text-zinc-300 text-[11px] uppercase tracking-[0.25em] h-9 px-4"
-          >
-            Вход
-          </Button>
-        </Link>
+        <span className="text-[10px] uppercase tracking-[0.35em] text-zinc-600 hidden md:block">
+          Est. 2026
+        </span>
       </div>
     </header>
   );

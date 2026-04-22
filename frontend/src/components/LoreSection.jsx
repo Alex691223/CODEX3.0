@@ -20,28 +20,30 @@ export function LoreSection() {
         <div className="flex items-center gap-3 mb-10">
           <span className="block w-10 h-px bg-[#8A0303]" />
           <span className="text-[11px] uppercase tracking-[0.5em] text-zinc-400">
-            Глава I · О семье
+            Глава I · Кодекс семьи
           </span>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-12 gap-6 lg:gap-8">
           {/* Logo artifact */}
           <div
-            className="md:col-span-5 lg:col-span-5 relative border border-zinc-900 bg-black overflow-hidden group"
+            className="md:col-span-5 lg:col-span-5 relative border border-zinc-900 bg-black overflow-hidden group flex flex-col"
             data-testid="lore-logo-card"
           >
             <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_rgba(138,3,3,0.12),_transparent_70%)]" />
-            <img
-              src={LOGO_URL}
-              alt="CODEX Emblem"
-              className="relative z-10 w-full h-full object-contain aspect-square p-6 transition-transform duration-700 group-hover:scale-[1.02]"
-            />
-            <div className="absolute bottom-4 left-4 right-4 z-10 flex items-center justify-between border-t border-zinc-800 pt-3">
-              <span className="text-[10px] uppercase tracking-[0.4em] text-zinc-500">
-                Emblem · Est. Неизвестно
-              </span>
-              <span className="text-[10px] uppercase tracking-[0.4em] text-[#8A0303]">
-                Sigil
+            <div className="relative flex-1 flex items-center justify-center p-6">
+              <img
+                src={LOGO_URL}
+                alt="CODEX Emblem"
+                className="w-full h-auto max-h-[440px] object-contain transition-transform duration-700 group-hover:scale-[1.02]"
+              />
+            </div>
+            <div
+              className="relative border-t border-zinc-900 py-5 text-center"
+              data-testid="lore-emblem-caption"
+            >
+              <span className="font-display text-sm uppercase tracking-[0.55em] text-zinc-400">
+                EST. 2026
               </span>
             </div>
           </div>
@@ -55,13 +57,14 @@ export function LoreSection() {
               C O D E X
             </span>
             <h2 className="font-display text-3xl md:text-4xl uppercase mt-4 text-zinc-50">
-              Семья, написанная кровью и тишиной
+              История, написанная кровью и тишиной
             </h2>
             <p className="text-zinc-400 mt-6 leading-relaxed text-base max-w-xl">
-              История семьи — неизвестно. Здесь будет описание того, как зарождался
-              CODEX, через что прошли братья и кто стоял у истоков. Пока эта страница
-              ещё не дописана — как и наша история, которая только разворачивается на
-              улицах Redwood.
+              Всё началось в 2026 на улицах Redwood. Двое нашли общий язык там,
+              где его уже никто не искал — <span className="text-zinc-200">Theo Codex</span>
+              {" "}и <span className="text-zinc-200">Butcher Codex</span>. Из их договора
+              родилась семья, которая не прощает слабость и не забывает долгов.
+              Мы не рассказываем о себе в чатах — CODEX узнают по делам.
             </p>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-10">
@@ -89,13 +92,13 @@ export function LoreSection() {
           </div>
           <div className="md:col-span-4 border border-zinc-900 bg-[#0a0a0a] p-7" data-testid="lore-stat-territory">
             <div className="text-[10px] uppercase tracking-[0.4em] text-zinc-500">Территория</div>
-            <div className="font-display text-2xl md:text-3xl mt-3 text-zinc-100">Неизвестно</div>
-            <div className="mt-2 text-zinc-500 text-sm">Границы уточняются</div>
+            <div className="font-display text-2xl md:text-3xl mt-3 text-zinc-100">Тени Redwood</div>
+            <div className="mt-2 text-zinc-500 text-sm">Где затихают чужие голоса</div>
           </div>
-          <div className="md:col-span-4 border border-zinc-900 bg-[#0a0a0a] p-7" data-testid="lore-stat-code">
-            <div className="text-[10px] uppercase tracking-[0.4em] text-zinc-500">Кодекс</div>
-            <div className="font-display text-2xl md:text-3xl mt-3 text-zinc-100">Неизвестно</div>
-            <div className="mt-2 text-zinc-500 text-sm">Полный текст — позже</div>
+          <div className="md:col-span-4 border border-zinc-900 bg-[#0a0a0a] p-7" data-testid="lore-stat-founded">
+            <div className="text-[10px] uppercase tracking-[0.4em] text-zinc-500">Основано</div>
+            <div className="font-display text-2xl md:text-3xl mt-3 text-zinc-100">2026</div>
+            <div className="mt-2 text-zinc-500 text-sm">Theo Codex · Butcher Codex</div>
           </div>
         </div>
       </div>
