@@ -1,52 +1,43 @@
 # C O D E X — Family Portal PRD
 
-## Project
-- **Name:** C O D E X Family Portal
-- **Server:** Redwood (GTA 5RP)
-- **Language:** Russian
-- **Aesthetic:** Dark gothic / mafia
+## Stack
+- **Backend:** FastAPI + Motor + bcrypt + PyJWT + slowapi + Emergent Object Storage
+- **Frontend:** React 19 + Tailwind + shadcn/ui + Sonner + react-day-picker
+- **Deploy:** Docker + nginx + Let's Encrypt (Namecheap VPS)
 
-## Architecture
-- **Backend:** FastAPI + Motor (MongoDB) + bcrypt + PyJWT + slowapi + Emergent Object Storage
-- **Frontend:** React 19 + React Router + Tailwind + shadcn/ui + Sonner + react-day-picker
-- **Auth:** JWT Bearer (localStorage) + brute-force lockout + rate-limit
-- **Deployment:** Docker + nginx + Let's Encrypt on Namecheap VPS
+## Implemented (iteration 4)
+- **Audit log** — `/api/audit`, каждая значимая операция (логин, заявки, модераторы, участники, настройки, ранги, файлы, таблицы, категории) пишет событие. Вкладка «Журнал» с фильтром действий и поиском.
+- **Text file editor** — `.txt`, `.md`, `.csv`, `.json`, `.xml`, `.html`, `.css`, `.js`, `.ts`, `.py`, `.yaml`, `.yml`, `.log` открываются прямо в браузере в редакторе. Права: админ редактирует любой, модератор — только свои.
+- **Territory text editable** — `territory_desc` теперь до 2000 символов, multi-line Textarea в Настройках; убрана надпись «Под защитой семьи».
+- **Advanced sheet features** — импорт CSV, очистка, Find/Replace с подсчётом замен, сортировка по столбцу (asc/desc, числа и строки), дублирование строки, строка сумм по числовым колонкам.
+- **Custom ranks** — ранги теперь кастомные: CRUD в Настройках (создание/переименование/порядок/удаление), защищённое удаление если в ранге есть участники. Миграция: старые `rank` (owner/advisor/important) автоматически конвертированы в `rank_id` на старте сервера. Roster на главной группирует участников по рангам в порядке `sort_order`.
 
-## Implemented (iteration 3)
-- **UI:** X close on login → `/`, logout → `/`, no «Глав 2», no «© CODEX» текста, убрана строка «Discord обязателен», снят age-спиннер, территория «Владения · Тени Redwood».
-- **Admin auth:** keyboard shortcut `m+d` → `/admin`.
-- **Applications:** поиск (по нику/IRL/пригласил/таймзоне) + фильтр по статусу (все/pending/approved/rejected).
-- **Drive:** превью картинок (thumbnails + lightbox), жирный ползунок для календаря, категории ниже Таблиц, экспорт таблицы в CSV.
-- **Sheets:** inline-редактор + CSV export.
-- **Settings (admin):** редактирование Hero subtitle, Территория (label+desc), История, Server name, Год основания, Discord URL; полный CRUD состава семьи (Главы/Советники/Важные) с выпадающим рангом — изменения мгновенно подтягиваются на главную.
-- **Passwords:** модераторы меняют свой пароль (вкладка Профиль); админ сбрасывает пароли модераторов из вкладки Модераторы.
-- **Security:**
-  - `X-Content-Type-Options`, `X-Frame-Options: DENY`, `Referrer-Policy`, `Permissions-Policy`, `Cross-Origin-Resource-Policy`, опциональный HSTS.
-  - Rate-limit: `/api/auth/login` 20/min, `/api/applications` 10/min, `/api/visits` 30/min.
-  - Brute-force lockout: 8 фейлов на (IP,username) или 16 по username-only → 429 на 15 мин (TTL).
-  - `TRUSTED_HOSTS`, lockable `CORS_ORIGINS`, все пароли bcrypt, JWT secret из env.
-
-## Deployment (Namecheap VPS)
-- `Dockerfile.backend`, `Dockerfile.frontend`, `docker-compose.yml` (mongo + backend + frontend + nginx edge).
-- `deploy/nginx/edge.conf` — TLS + nginx rate-limit (login / apply / general) + security headers.
-- `.env.example` — все production-секреты.
-- `DEPLOY.md` — пошаговая инструкция (Namecheap VPS Pulsar, Docker, Let's Encrypt, бэкапы, Cloudflare WAF).
+## Security
+- X-Content-Type-Options, X-Frame-Options: DENY, Referrer-Policy, Permissions-Policy, HSTS-opt.
+- slowapi rate-limit: login 20/min, apply 10/min, visits 30/min.
+- Brute-force lockout (IP+username и username-only).
+- bcrypt hashes, JWT из env, TRUSTED_HOSTS, CORS lock.
+- Audit log для forensic trail.
 
 ## Stats
-- Backend: **59/59** pytest pass.
-- Frontend: 100% critical flows verified.
+- Backend: **78/78** pytest pass ✅
+- Frontend: 100% critical flows ✅
+- Zero regressions
+
+## Deploy
+- `docker-compose.yml`, `deploy/Dockerfile.backend`, `deploy/Dockerfile.frontend`, `deploy/nginx/edge.conf` (rate-limit + TLS).
+- `.env.example` + `DEPLOY.md` (Namecheap VPS + Certbot + backups + Cloudflare WAF).
 
 ## Backlog
 ### P1
-- Thumbnail генерация на сервере (сейчас — полный файл в img, есть кеширование http).
-- Reordering участников (drag-n-drop) вместо фиксированного порядка.
-- Multi-file bulk operations в Диске.
-- Логи активности (audit trail) в Аналитике.
+- Drag-n-drop порядок участников
+- Thumbnail generation на сервере (image optimization)
+- Discord webhook на новые заявки
 
 ### P2
-- Webhook в Discord на новую заявку.
-- Двухфакторная аутентификация.
-- Полнотекстовый поиск по таблицам.
+- Audit log экспорт в CSV
+- 2FA для админа
+- Bulk-операции на диске
 
 ## Credentials
 `/app/memory/test_credentials.md` — admin `alex` / `123`.
